@@ -13,12 +13,16 @@ import time
 from collections.abc import Awaitable, Callable, Iterable, Mapping
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
+from functools import partial
+from multiprocessing.queues import Queue
+from multiprocessing.sharedctypes import Synchronized
 from typing import Any, Literal, Sequence
 
 from sglang_omni.config.runtime import (
     apply_typed_stage_kwargs,
     resolve_factory_signature_args,
 )
+from sglang_omni.metrics.runtime import enqueue_metric
 from sglang_omni.pipeline.control_plane import StageControlPlane
 from sglang_omni.pipeline.local_dispatch import LocalStageDispatcher
 from sglang_omni.pipeline.stage.input import AggregatedInput, DirectInput
@@ -26,6 +30,7 @@ from sglang_omni.pipeline.stage.runtime import Stage
 from sglang_omni.pipeline.stage.stream_queue import StreamQueue
 from sglang_omni.pipeline.tp_control import TPFollowerControlPlane, TPLeaderFanout
 from sglang_omni.platforms import current_platform, get_platform_spec
+from sglang_omni.profiler.event_recorder import set_metrics_sink
 from sglang_omni.utils.gpu_compat import (
     apply_gpu_compat_env_defaults,
     get_gpu_compat_env_defaults,
@@ -66,6 +71,7 @@ class StageLaunchConfig:
     factory_kwargs: dict[str, Any] = field(default_factory=dict)
     typed_kwargs: dict[str, Any] = field(default_factory=dict)
     factory_arg_defaults: dict[str, Any] = field(default_factory=dict)
+    runtime_server_args_overrides: dict[str, object] = field(default_factory=dict)
     require_factory_gpu_id: bool = False
     env_defaults: dict[str, str] = field(default_factory=dict)
     # Note (Jiaxin Deng): the byte budgets are first-class fields, never
@@ -143,6 +149,8 @@ class StageWorkerProcessSpec:
     # note (Dayuxiaoshui): root logger level for the spawned process. The
     # launcher passes its own root level so --log-level reaches every stage.
     log_level: int = logging.INFO
+    metrics_queue: Queue | None = None
+    metrics_dropped: Synchronized | None = None
 
 
 def get_worker_process_env(spec: StageWorkerProcessSpec) -> dict[str, str]:
@@ -415,6 +423,10 @@ def stage_process_main(
     # the launcher's --log-level.
     logging.basicConfig(level=spec.log_level, stream=sys.stdout)
     logging.getLogger().setLevel(spec.log_level)
+    if spec.metrics_queue is not None and spec.metrics_dropped is not None:
+        set_metrics_sink(
+            partial(enqueue_metric, spec.metrics_queue, spec.metrics_dropped)
+        )
     if not spec.stage_specs:
         raise ValueError(f"Process {spec.process_name!r} requires at least one stage")
     log = logging.getLogger(f"stage_workers.{spec.process_name}")
@@ -875,6 +887,7 @@ def construct_scheduler(
         factory,
         factory_args,
         defaults=spec.factory_arg_defaults,
+        runtime_server_args_overrides=spec.runtime_server_args_overrides,
         require_gpu_id=spec.require_factory_gpu_id,
         stage_name=spec.stage_name,
     )

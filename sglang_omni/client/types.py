@@ -193,6 +193,7 @@ class CompletionAudio:
     id: str
     data: str  # base64
     transcript: str | None = None
+    duration_s: float | None = None
 
 
 @dataclass
@@ -218,9 +219,11 @@ class CompletionStreamChunk:
     text: str = ""
     modality: str = "text"
     audio_b64: str | None = None  # already base64-encoded
+    audio_duration_s: float | None = None
     finish_reason: str | None = None
     usage: UsageInfo | None = None
     stage_name: str | None = None
+    num_new_tokens: int | None = None
 
 
 @dataclass
@@ -231,6 +234,7 @@ class SpeechResult:
     mime_type: str
     format: str
     sample_rate: int | None = None
+    duration_s: float | None = None
     usage: UsageInfo | None = None
     finish_reason: str | None = None
 

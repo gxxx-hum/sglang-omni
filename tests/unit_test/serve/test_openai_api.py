@@ -8,12 +8,14 @@ import logging
 from typing import Any
 
 import pytest
+from fastapi import Request
 from fastapi.testclient import TestClient
 
 from sglang_omni.admission import QueueFullError
 from sglang_omni.client import Client, ClientError, GenerateChunk
 from sglang_omni.client.audio import encode_pcm
-from sglang_omni.client.types import GenerateRequest
+from sglang_omni.client.types import CompletionResult, GenerateRequest, UsageInfo
+from sglang_omni.metrics.runtime import RuntimeMetrics
 from sglang_omni.pipeline.coordinator import Coordinator
 from sglang_omni.proto import (
     EXPLICIT_GENERATION_PARAMS_KEY,
@@ -31,10 +33,12 @@ from sglang_omni.serve.openai_api import (
 )
 from sglang_omni.serve.protocol import ChatCompletionRequest, CreateSpeechRequest
 from sglang_omni.serve.speech_service import SpeechRequestValidator
+from sglang_omni.serve.transcription_adapters.base import DefaultTranscriptionAdapter
 from sglang_omni.serve.transcriptions import (
     _first_transcription_chunk,
     _transcription_stream,
     build_transcription_generate_request,
+    transcribe_audio_chunks,
 )
 from tests.unit_test.fixtures.pipeline_fakes import RecordingCoordinatorControlPlane
 
@@ -922,6 +926,24 @@ def test_chat_stream_failure_closes_without_done_sentinel() -> None:
     assert all(chunk != "data: [DONE]\n\n" for chunk in chunks)
 
 
+def test_metrics_endpoint_is_disabled_by_default() -> None:
+    app = create_app(object())
+
+    assert "/metrics" not in {route.path for route in app.routes}
+    assert app.state.metrics is None
+
+
+def test_metrics_endpoint_is_enabled_with_runtime_metrics() -> None:
+    metrics = RuntimeMetrics()
+    app = create_app(object(), metrics=metrics)
+
+    response = TestClient(app).get("/metrics")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/plain")
+    assert app.state.metrics is metrics
+
+
 def test_chat_asgi_send_failure_aborts_backend_and_cleans_state() -> None:
     async def _run() -> None:
         client, coordinator, control_plane = _streaming_client()
@@ -1169,6 +1191,7 @@ def test_transcription_stream_close_reaches_coordinator_owner() -> None:
                 GenerateRequest(model="whisper", prompt="hello", stream=True),
                 request_id=request_id,
             ),
+            request=Request({"type": "http", "state": {}}),
             first_chunk=None,
             request_id=request_id,
             adapter=_IdentityTranscriptionAdapter(),
@@ -2160,8 +2183,9 @@ def _run_chunks(
 
     if adapter is None:
         adapter = DefaultTranscriptionAdapter()
-    return asyncio.wait_for(
-        transcribe_audio_chunks(
+
+    async def run() -> list[str]:
+        result = await transcribe_audio_chunks(
             client,
             plan,
             request_id="req",
@@ -2175,9 +2199,10 @@ def _run_chunks(
             max_concurrent=max_concurrent,
             condition_on_previous_text=condition_on_previous_text,
             adapter=adapter,
-        ),
-        timeout=10.0,
-    )
+        )
+        return result.texts
+
+    return asyncio.wait_for(run(), timeout=10.0)
 
 
 class _ScriptedChunkClient:
@@ -2224,6 +2249,45 @@ def test_chunks_run_concurrently() -> None:
         texts = await _run_chunks(barrier_client, _tiny_plan(3), max_concurrent=3)
         assert texts == ["part0", "part1", "part2"]
         assert barrier_client.max_active == 3
+
+    asyncio.run(scenario())
+
+
+def test_chunked_transcription_sums_engine_and_token_usage() -> None:
+    class UsageClient:
+        async def completion(self, request, *, request_id, **kwargs):
+            return CompletionResult(
+                request_id=request_id,
+                text=request_id,
+                usage=UsageInfo(
+                    prompt_tokens=10,
+                    completion_tokens=2,
+                    total_tokens=12,
+                    engine_time_s=0.25,
+                ),
+            )
+
+    async def scenario() -> None:
+        result = await transcribe_audio_chunks(
+            UsageClient(),
+            _tiny_plan(2),
+            request_id="req",
+            model="asr",
+            filename=None,
+            language=None,
+            prompt=None,
+            temperature=None,
+            repetition_penalty=None,
+            max_new_tokens=None,
+            max_concurrent=2,
+            condition_on_previous_text=False,
+            adapter=DefaultTranscriptionAdapter(),
+        )
+
+        assert result.usage.prompt_tokens == 20
+        assert result.usage.completion_tokens == 4
+        assert result.usage.total_tokens == 24
+        assert result.usage.engine_time_s == 0.5
 
     asyncio.run(scenario())
 

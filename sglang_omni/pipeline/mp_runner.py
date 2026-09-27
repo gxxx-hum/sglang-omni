@@ -12,6 +12,9 @@ import asyncio
 import logging
 import multiprocessing
 import socket
+import time
+from multiprocessing.queues import Queue
+from multiprocessing.sharedctypes import Synchronized
 from typing import Any
 
 from sglang_omni.config.placement import (
@@ -26,8 +29,13 @@ from sglang_omni.config.runtime import (
     resolve_stage_factory_kwargs,
     resolve_stage_typed_kwargs,
 )
-from sglang_omni.config.schema import PipelineConfig, StageConfig
+from sglang_omni.config.schema import (
+    PipelineConfig,
+    StageConfig,
+    parse_replica_instance_name,
+)
 from sglang_omni.config.topology import LogicalProcessPlan, ProcessTopologyPlan
+from sglang_omni.metrics.runtime import RuntimeMetrics, drain_metric_events
 from sglang_omni.mps.runtime import MpsPipelineRuntime, create_for_pipeline
 from sglang_omni.pipeline import Coordinator
 from sglang_omni.pipeline.replicas import ReplicaTopology
@@ -43,9 +51,13 @@ from sglang_omni.pipeline.stage_workers import (
     StageWorkerProcessSpec,
 )
 from sglang_omni.pipeline.weight_share import WeightSharePlan, plan_weight_share
+from sglang_omni.profiler.event_recorder import set_metrics_sink
 from sglang_omni.utils.imports import import_string
 
 logger = logging.getLogger(__name__)
+METRIC_QUEUE_CAPACITY = 8192
+METRIC_DRAIN_INTERVAL_S = 0.05
+METRIC_PRUNE_EVERY_DRAINS = 100
 
 
 def resolve_coordinator_max_in_flight(
@@ -89,6 +101,7 @@ def build_stage_groups(
     placement_plan: StagePlacementPlan,
     process_plan: ProcessTopologyPlan,
     replica_topology: ReplicaTopology | None = None,
+    enable_metrics: bool = False,
 ) -> list[StageGroup]:
     """Build lifecycle groups from prepared endpoints and process topology.
 
@@ -145,6 +158,21 @@ def build_stage_groups(
         # must construct anyway.
         base_factory_kwargs = resolve_stage_factory_kwargs(stage_cfg, config)
         typed_kwargs = resolve_stage_typed_kwargs(stage_cfg)
+        logical_stage_name, replica_id = parse_replica_instance_name(stage_cfg.name)
+        stage_config_cls = type(config).stage_config_cls(logical_stage_name)
+        runtime_server_args_overrides: dict[str, object]
+        if enable_metrics and stage_config_cls.engine_stage:
+            extra_metric_labels = (
+                {"stage": logical_stage_name}
+                if replica_id is None
+                else {"stage": logical_stage_name, "replica": str(replica_id)}
+            )
+            runtime_server_args_overrides = {
+                "enable_metrics": True,
+                "extra_metric_labels": extra_metric_labels,
+            }
+        else:
+            runtime_server_args_overrides = {}
 
         stage_kwargs = dict(
             stage_name=stage_cfg.name,
@@ -170,6 +198,7 @@ def build_stage_groups(
             gpu_stage_names=gpu_stage_names,
             stage_gpu_ids=stage_gpu_ids,
             require_factory_gpu_id=requires_factory_gpu_id(stage_cfg, config),
+            runtime_server_args_overrides=runtime_server_args_overrides,
             same_process_targets=same_process_targets,
             is_stream_receiver=stage_cfg.name in stream_receivers,
             can_accept_stream_before_payload=stage_cfg.can_accept_stream_before_payload,
@@ -482,8 +511,14 @@ def wave_stage_names(wave: list[StageGroup]) -> list[str]:
 
 class MultiProcessPipelineRunner:
 
-    def __init__(self, config: PipelineConfig):
+    def __init__(
+        self, config: PipelineConfig, *, metrics: RuntimeMetrics | None = None
+    ):
         self._config = config
+        self.metrics = metrics
+        self.metrics_queue: Queue | None = None
+        self.metrics_dropped: Synchronized | None = None
+        self.metrics_task: asyncio.Task[None] | None = None
         self._coordinator: Coordinator | None = None
         self._ipc_runtime_dir: IpcRuntimeDir | None = None
         self._groups: list[StageGroup] = []
@@ -525,6 +560,11 @@ class MultiProcessPipelineRunner:
 
         try:
             ctx = multiprocessing.get_context("spawn")
+            if self.metrics is not None:
+                self.metrics_queue = ctx.Queue(maxsize=METRIC_QUEUE_CAPACITY)
+                self.metrics_dropped = ctx.Value("Q", 0)
+                set_metrics_sink(self.metrics.record)
+                self.metrics_task = asyncio.create_task(self.collect_metrics())
             self._fatal_event = asyncio.Event()
             self._fatal_error = None
             prep = prepare_pipeline_runtime(
@@ -542,7 +582,13 @@ class MultiProcessPipelineRunner:
                 placement_plan=prep.placement_plan,
                 process_plan=prep.process_plan,
                 replica_topology=prep.replica_topology,
+                enable_metrics=self.metrics is not None,
             )
+            if self.metrics_queue is not None:
+                for group in groups:
+                    for spec in group.process_specs:
+                        spec.metrics_queue = self.metrics_queue
+                        spec.metrics_dropped = self.metrics_dropped
 
             # Note (Jiaxin Deng): roles are assigned before the coordinator
             # binds and before any child is spawned, so an unshareable topology
@@ -765,6 +811,52 @@ class MultiProcessPipelineRunner:
             raise self._fatal_error
         raise RuntimeError("Pipeline runtime failed")
 
+    async def collect_metrics(self) -> None:
+        """Drain worker events while keeping metric updates in the API process."""
+        assert self.metrics is not None
+        assert self.metrics_queue is not None
+        assert self.metrics_dropped is not None
+        drain_count = 0
+        while True:
+            try:
+                drain_metric_events(self.metrics_queue, self.metrics)
+                self.metrics.dropped_events.set(self.metrics_dropped.value)
+                drain_count += 1
+                if drain_count == METRIC_PRUNE_EVERY_DRAINS:
+                    self.metrics.prune(time.time_ns())
+                    drain_count = 0
+            except Exception:
+                logger.exception("Metric collection failed")
+            await asyncio.sleep(METRIC_DRAIN_INTERVAL_S)
+
+    async def close_metric_events(self) -> None:
+        if self.metrics_task is not None:
+            self.metrics_task.cancel()
+            try:
+                await self.metrics_task
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                logger.warning(
+                    "Metric collector stopped before teardown", exc_info=True
+                )
+            self.metrics_task = None
+        if self.metrics_queue is not None:
+            assert self.metrics is not None
+            try:
+                while drain_metric_events(self.metrics_queue, self.metrics):
+                    pass
+                if self.metrics_dropped is not None:
+                    self.metrics.dropped_events.set(self.metrics_dropped.value)
+            except Exception:
+                logger.exception("Metric collection failed during teardown")
+            self.metrics_queue.close()
+            self.metrics_queue.join_thread()
+            self.metrics_queue = None
+            self.metrics_dropped = None
+        if self.metrics is not None:
+            set_metrics_sink(None)
+
     async def cancel_completion_task(self) -> None:
         if self._completion_task is None:
             return
@@ -832,6 +924,7 @@ class MultiProcessPipelineRunner:
         await self.cancel_completion_task()
 
         await self._coordinator.stop()
+        await self.close_metric_events()
         self._groups.clear()
         self._coordinator = None
 
@@ -866,6 +959,8 @@ class MultiProcessPipelineRunner:
             except Exception:
                 pass
             self._coordinator = None
+
+        await self.close_metric_events()
 
         self.close_runtime_dir()
 

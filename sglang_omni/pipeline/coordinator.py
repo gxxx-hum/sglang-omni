@@ -160,6 +160,11 @@ class Coordinator:
         for request_id, info in list(self._requests.items()):
             info.state = RequestState.FAILED
             info.error = message
+            _emit_event(
+                request_id=request_id,
+                stage="coordinator",
+                event_name="request_failed",
+            )
             self.reject_completion_future(request_id, RuntimeError(message))
             queue = self._stream_queues.get(request_id)
             if queue is not None:
@@ -411,11 +416,26 @@ class Coordinator:
     ) -> None:
         """Submit a request without waiting for completion."""
         if self._fatal_error is not None:
+            _emit_event(
+                request_id=request_id,
+                stage="coordinator",
+                event_name="request_rejected",
+            )
             raise RuntimeError(self._fatal_error)
         if self.request_id_is_reserved(request_id):
+            _emit_event(
+                request_id=request_id,
+                stage="coordinator",
+                event_name="request_rejected",
+            )
             raise ValueError(f"Request {request_id} already exists")
 
         if self.max_in_flight is not None and len(self._requests) >= self.max_in_flight:
+            _emit_event(
+                request_id=request_id,
+                stage="coordinator",
+                event_name="request_rejected",
+            )
             logger.warning(
                 "Rejecting request %s before pipeline submit: in-flight cap "
                 "(max_in_flight=%s)",
@@ -437,6 +457,11 @@ class Coordinator:
             else self.entry_stage
         )
         if entry_instance not in self._stages:
+            _emit_event(
+                request_id=request_id,
+                stage="coordinator",
+                event_name="request_rejected",
+            )
             raise ValueError(f"Entry stage {entry_instance} not registered")
         entry_info = self._stages[entry_instance]
 
@@ -562,6 +587,11 @@ class Coordinator:
             return False
 
         info.state = RequestState.ABORTED
+        _emit_event(
+            request_id=request_id,
+            stage="coordinator",
+            event_name="request_cancelled",
+        )
         self.reject_completion_future(
             request_id, asyncio.CancelledError(f"Request {request_id} aborted")
         )
@@ -659,6 +689,11 @@ class Coordinator:
         if not msg.success:
             info.state = RequestState.FAILED
             info.error = msg.error
+            _emit_event(
+                request_id=request_id,
+                stage="coordinator",
+                event_name="request_failed",
+            )
             await self.control_plane.broadcast_abort(
                 AbortMessage(request_id=request_id)
             )
@@ -687,6 +722,11 @@ class Coordinator:
         if len(expected_terminal_stages) <= 1:
             info.state = RequestState.COMPLETED
             info.result = msg.result
+            _emit_event(
+                request_id=request_id,
+                stage="coordinator",
+                event_name="request_completed",
+            )
             if request_id in self._completion_futures:
                 future = self._completion_futures[request_id]
                 if not future.done():
@@ -712,6 +752,11 @@ class Coordinator:
         self._partial_results.pop(request_id)
         info.state = RequestState.COMPLETED
         info.result = merged
+        _emit_event(
+            request_id=request_id,
+            stage="coordinator",
+            event_name="request_completed",
+        )
 
         if request_id in self._completion_futures:
             future = self._completion_futures[request_id]
