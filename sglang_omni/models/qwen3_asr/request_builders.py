@@ -508,8 +508,6 @@ def make_qwen3_asr_scheduler_adapters(
                 "language": resolved_language,
                 "duration_s": data.audio_duration_s,
                 "asr_latency_s": engine_time_s,
-                "prompt_tokens": len(data.prompt_token_ids or []),
-                "completion_tokens": len(output_ids),
                 "usage": {"engine_time_s": engine_time_s},
                 "modality": "text",
             },

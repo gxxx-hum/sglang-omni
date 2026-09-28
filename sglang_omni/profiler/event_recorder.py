@@ -2,8 +2,8 @@
 """Request-level event recorder.
 
 Each process appends events to ``<dir>/events_<stage>_<pid>.jsonl``; the
-views layer merges files by ``request_id``. Kept free of runtime imports so it
-can be loaded from any process without circular risk.
+views layer merges files by ``request_id``. Kept free of sglang-omni
+imports so it can be loaded from any process without circular risk.
 """
 
 from __future__ import annotations
@@ -17,40 +17,9 @@ import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Mapping, cast
-
-from sglang_omni.metrics.types import MetricDetails, RuntimeMetricEvent
+from typing import Any, Mapping
 
 logger = logging.getLogger(__name__)
-
-METRIC_EVENT_FIELDS: dict[RuntimeMetricEvent, tuple[str, ...]] = {
-    "request_admission": (),
-    "request_rejected": (),
-    "request_completed": (),
-    "request_failed": (),
-    "request_cancelled": (),
-    "scheduler_queue_enter": (),
-    "scheduler_prefill_start": (),
-    "scheduler_prefill_end": (),
-    "stage_dispatch": (),
-    "stage_complete": (),
-    "stage_hop_sent": ("to_stage",),
-    "stage_input_received": ("from_stage",),
-    "preprocess_start": (),
-    "preprocess_end": (),
-    "code2wav_decode_start": (),
-    "code2wav_decode_end": ("execution_mode", "fallback_reason"),
-}
-MetricSink = Callable[[RuntimeMetricEvent, str, str, int, MetricDetails], None]
-_metrics_sink: MetricSink | None = None
-_metrics_sink_failure_logged = False
-
-
-def set_metrics_sink(sink: MetricSink | None) -> None:
-    """Attach the runtime metric sink for this process."""
-    global _metrics_sink, _metrics_sink_failure_logged
-    _metrics_sink = sink
-    _metrics_sink_failure_logged = False
 
 
 # Active-stage binding used when ``emit(stage=None)`` is called from code
@@ -299,32 +268,6 @@ def emit(
     timestamp_ns: int | None = None,
 ) -> None:
     """Module-level shortcut for ``get_recorder().emit(...)``."""
-    if _metrics_sink is not None and event_name in METRIC_EVENT_FIELDS:
-        metric_event = cast(RuntimeMetricEvent, event_name)
-        fields = METRIC_EVENT_FIELDS[metric_event]
-        details: MetricDetails = {
-            name: metadata[name]
-            for name in fields
-            if metadata is not None
-            and name in metadata
-            and (
-                metadata[name] is None
-                or isinstance(metadata[name], (str, int, float, bool))
-            )
-        }
-        try:
-            _metrics_sink(
-                metric_event,
-                request_id,
-                stage or get_active_stage() or "unknown",
-                timestamp_ns if timestamp_ns is not None else time.time_ns(),
-                details,
-            )
-        except Exception:
-            global _metrics_sink_failure_logged
-            if not _metrics_sink_failure_logged:
-                logger.warning("Failed to record runtime metric", exc_info=True)
-                _metrics_sink_failure_logged = True
     _RECORDER.emit(
         request_id=request_id,
         stage=stage,

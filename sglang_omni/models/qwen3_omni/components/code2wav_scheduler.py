@@ -453,12 +453,12 @@ class Code2WavScheduler(StreamingVocoderBase[Code2WavStreamState, "list[int]"]):
                 "inbox_depth": self.inbox.qsize(),
                 "pending_message_depth": len(self.pending_messages),
             }
-        _emit_event(
-            request_id=request_id,
-            stage=None,
-            event_name="code2wav_decode_start",
-            metadata=profile_metadata,
-        )
+            _emit_event(
+                request_id=request_id,
+                stage=None,
+                event_name="code2wav_decode_start",
+                metadata=profile_metadata,
+            )
         window = torch.stack(state.chunks[start - context : end], dim=0)
         codes = window.transpose(0, 1).unsqueeze(0)
         wav, execution_metadata = self.forward_codes(
@@ -482,22 +482,23 @@ class Code2WavScheduler(StreamingVocoderBase[Code2WavStreamState, "list[int]"]):
                 slot = self.acquire_slot(samples)
         if slot is None:
             audio = wav.reshape(-1).detach().cpu().float().numpy().copy()
-            extra = (
-                {"pipelined": False, "d2h_wait_ns": prev_wait_ns}
-                if self._pipeline_active
-                else {}
-            )
-            _emit_event(
-                request_id=request_id,
-                stage=None,
-                event_name="code2wav_decode_end",
-                metadata={
-                    **(profile_metadata or {}),
-                    "audio_samples": int(audio.shape[0]),
-                    **execution_metadata,
-                    **extra,
-                },
-            )
+            if profile_metadata is not None:
+                extra = (
+                    {"pipelined": False, "d2h_wait_ns": prev_wait_ns}
+                    if self._pipeline_active
+                    else {}
+                )
+                _emit_event(
+                    request_id=request_id,
+                    stage=None,
+                    event_name="code2wav_decode_end",
+                    metadata={
+                        **profile_metadata,
+                        "audio_samples": int(audio.shape[0]),
+                        **execution_metadata,
+                        **extra,
+                    },
+                )
             state.emitted = end
             state.due_since = None
             if audio.size == 0:
@@ -552,18 +553,19 @@ class Code2WavScheduler(StreamingVocoderBase[Code2WavStreamState, "list[int]"]):
         state.pending = PendingWindow(slot=slot, samples=samples)
         state.emitted = end
         state.due_since = None
-        _emit_event(
-            request_id=request_id,
-            stage=None,
-            event_name="code2wav_decode_end",
-            metadata={
-                **(profile_metadata or {}),
-                "audio_samples": samples,
-                **execution_metadata,
-                "pipelined": True,
-                "d2h_wait_ns": prev_wait_ns,
-            },
-        )
+        if profile_metadata is not None:
+            _emit_event(
+                request_id=request_id,
+                stage=None,
+                event_name="code2wav_decode_end",
+                metadata={
+                    **profile_metadata,
+                    "audio_samples": samples,
+                    **execution_metadata,
+                    "pipelined": True,
+                    "d2h_wait_ns": prev_wait_ns,
+                },
+            )
         return prev_waveform
 
     def decode_and_emit(
@@ -1033,12 +1035,6 @@ class Code2WavScheduler(StreamingVocoderBase[Code2WavStreamState, "list[int]"]):
         cursor = 0
         for sub in plan:
             group = participants[cursor : cursor + sub]
-            metric_request_id = group[0][0]
-            _emit_event(
-                request_id=metric_request_id,
-                stage=None,
-                event_name="code2wav_decode_start",
-            )
             try:
                 samples, execution_metadata = self.run_sub_batch(group, decoded)
             except Exception as exc:
@@ -1049,12 +1045,6 @@ class Code2WavScheduler(StreamingVocoderBase[Code2WavStreamState, "list[int]"]):
                     self.on_step_failure(participants[cursor:], exc)
                 )
                 break
-            _emit_event(
-                request_id=metric_request_id,
-                stage=None,
-                event_name="code2wav_decode_end",
-                metadata=execution_metadata,
-            )
             cursor += sub
             audio_samples += samples
             if profile_metadata is not None:

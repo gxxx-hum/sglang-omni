@@ -698,7 +698,6 @@ def common_model_info_value(
 def register_chat_completions(app: FastAPI) -> None:
     @app.post("/v1/chat/completions")
     async def chat_completions(req: ChatCompletionRequest) -> Response:
-        request_started_ns = time.time_ns()
         client: Client = app.state.client
         default_model: str = app.state.model_name
 
@@ -725,8 +724,6 @@ def register_chat_completions(app: FastAPI) -> None:
                     model,
                     req,
                     audio_format,
-                    app.state.metrics,
-                    request_started_ns,
                 ),
                 media_type="text/event-stream",
             )
@@ -740,8 +737,6 @@ def register_chat_completions(app: FastAPI) -> None:
             model,
             req,
             audio_format,
-            app.state.metrics,
-            request_started_ns,
         )
 
 
@@ -754,35 +749,19 @@ async def chat_non_stream(
     model: str,
     req: ChatCompletionRequest,
     audio_format: str,
-    metrics: RuntimeMetrics | None = None,
-    request_started_ns: int | None = None,
 ) -> JSONResponse:
     """Handle non-streaming chat completions."""
-    has_audio_output = "audio" in (req.modalities or ["text"])
-    if metrics is not None and has_audio_output:
-        started_ns = (
-            request_started_ns if request_started_ns is not None else time.time_ns()
-        )
-        metrics.record("audio_response_start", request_id, "api", started_ns)
     try:
         result = await client.completion(
             gen_req,
             request_id=request_id,
             audio_format=audio_format,
         )
-    except asyncio.CancelledError:
-        if metrics is not None and has_audio_output:
-            metrics.record("audio_response_aborted", request_id, "api", time.time_ns())
-        raise
     except ClientError as exc:
-        if metrics is not None and has_audio_output:
-            metrics.record("audio_response_aborted", request_id, "api", time.time_ns())
         if _is_bad_request_error(exc):
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except Exception as exc:
-        if metrics is not None and has_audio_output:
-            metrics.record("audio_response_aborted", request_id, "api", time.time_ns())
         logger.exception("Error generating response for request %s", request_id)
         if _is_bad_request_error(exc):
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -829,23 +808,6 @@ async def chat_non_stream(
         usage=usage,
     )
 
-    if metrics is not None and has_audio_output:
-        audio_details = {
-            "audio_duration_s": (
-                result.audio.duration_s if result.audio is not None else None
-            ),
-            "audio_generation_s": (
-                result.usage.engine_time_s if result.usage is not None else None
-            ),
-        }
-        metrics.record(
-            "audio_response_done",
-            request_id,
-            "api",
-            time.time_ns(),
-            audio_details,
-        )
-
     return JSONResponse(content=response.model_dump())
 
 
@@ -858,138 +820,114 @@ async def chat_stream(
     model: str,
     req: ChatCompletionRequest,
     audio_format: str,
-    metrics: RuntimeMetrics | None = None,
-    request_started_ns: int | None = None,
 ) -> AsyncIterator[str]:
     """Streaming chat completion generator (yields SSE events)."""
     role_sent = False
     requested_modalities = req.modalities or ["text"]
     finish_reason: str | None = None
     final_usage: UsageResponse | None = None
-    final_engine_time_s: float | None = None
-    completed = False
-
-    if metrics is not None and "audio" in requested_modalities:
-        started_ns = (
-            request_started_ns if request_started_ns is not None else time.time_ns()
-        )
-        metrics.record("audio_response_start", request_id, "api", started_ns)
 
     chunk_stream = client.completion_stream(
         gen_req,
         request_id=request_id,
         audio_format=audio_format,
     )
-    try:
-        async with aclosing(chunk_stream):
-            async for chunk in chunk_stream:
-                # Some pipelines only emit payload in the final aggregate chunk.
-                if chunk.finish_reason is not None:
-                    finish_reason = chunk.finish_reason
-                    if chunk.usage is not None:
-                        final_usage = UsageResponse(
-                            prompt_tokens=chunk.usage.prompt_tokens or 0,
-                            completion_tokens=chunk.usage.completion_tokens or 0,
-                            total_tokens=chunk.usage.total_tokens or 0,
-                        )
-                        final_engine_time_s = chunk.usage.engine_time_s
-                    has_payload = (
-                        chunk.modality == "text"
-                        and bool(chunk.text)
-                        and "text" in requested_modalities
-                    ) or (
-                        chunk.modality == "audio"
-                        and chunk.audio_b64 is not None
-                        and "audio" in requested_modalities
+    async with aclosing(chunk_stream):
+        async for chunk in chunk_stream:
+            # Capture finish info for the dedicated finish chunk after the loop.
+            # Some pipelines only emit a final aggregate chunk; do not drop its
+            # text/audio just because it already carries a finish reason.
+            if chunk.finish_reason is not None:
+                finish_reason = chunk.finish_reason
+                if chunk.usage is not None:
+                    final_usage = UsageResponse(
+                        prompt_tokens=chunk.usage.prompt_tokens or 0,
+                        completion_tokens=chunk.usage.completion_tokens or 0,
+                        total_tokens=chunk.usage.total_tokens or 0,
                     )
-                    if not has_payload:
-                        continue
-
-                delta = ChatCompletionStreamDelta()
-                emit = False
-                if not role_sent:
-                    delta.role = "assistant"
-                    role_sent = True
-                    emit = True
-
-                if (
+                has_payload = (
                     chunk.modality == "text"
-                    and chunk.text
+                    and bool(chunk.text)
                     and "text" in requested_modalities
-                ):
-                    delta.content = chunk.text
-                    emit = True
-
-                if (
+                ) or (
                     chunk.modality == "audio"
                     and chunk.audio_b64 is not None
                     and "audio" in requested_modalities
-                ):
-                    delta.audio = ChatCompletionAudio(
-                        id=f"audio-{request_id}",
-                        data=chunk.audio_b64,
-                    )
-                    emit = True
-                    if metrics is not None and chunk.audio_duration_s is not None:
-                        metrics.record(
-                            "audio_chunk",
-                            request_id,
-                            "api",
-                            time.time_ns(),
-                            {"duration_s": chunk.audio_duration_s},
-                        )
-
-                if not emit:
+                )
+                if not has_payload:
                     continue
 
-                stream_resp = ChatCompletionStreamResponse(
-                    id=response_id,
-                    created=created,
-                    model=model,
-                    choices=[
-                        ChatCompletionStreamChoice(
-                            index=0,
-                            delta=delta,
-                            finish_reason=None,
-                        )
-                    ],
-                )
-                data = stream_resp.model_dump(exclude_none=True)
-                for choice in data.get("choices", []):
-                    choice.setdefault("finish_reason", None)
-                yield f"data: {json.dumps(data)}\n\n"
+            delta = ChatCompletionStreamDelta()
+            emit = False
 
-        finish_resp = ChatCompletionStreamResponse(
-            id=response_id,
-            created=created,
-            model=model,
-            choices=[
-                ChatCompletionStreamChoice(
-                    index=0,
-                    delta=ChatCompletionStreamDelta(),
-                    finish_reason=finish_reason or "stop",
-                )
-            ],
-            usage=final_usage,
-        )
-        data = finish_resp.model_dump(exclude_none=True)
-        for choice in data.get("choices", []):
-            choice.setdefault("finish_reason", None)
-        yield f"data: {json.dumps(data)}\n\n"
-        yield f"data: {STREAM_DONE_SENTINEL}\n\n"
+            # Send role on first chunk
+            if not role_sent:
+                delta.role = "assistant"
+                role_sent = True
+                emit = True
 
-        completed = True
-        if metrics is not None and "audio" in requested_modalities:
-            metrics.record(
-                "audio_response_done",
-                request_id,
-                "api",
-                time.time_ns(),
-                {"audio_generation_s": final_engine_time_s},
+            # Text chunk
+            if (
+                chunk.modality == "text"
+                and chunk.text
+                and "text" in requested_modalities
+            ):
+                delta.content = chunk.text
+                emit = True
+
+            # Audio chunk
+            if (
+                chunk.modality == "audio"
+                and chunk.audio_b64 is not None
+                and "audio" in requested_modalities
+            ):
+                delta.audio = ChatCompletionAudio(
+                    id=f"audio-{request_id}",
+                    data=chunk.audio_b64,
+                )
+                emit = True
+
+            if not emit:
+                continue
+
+            stream_resp = ChatCompletionStreamResponse(
+                id=response_id,
+                created=created,
+                model=model,
+                choices=[
+                    ChatCompletionStreamChoice(
+                        index=0,
+                        delta=delta,
+                        finish_reason=None,
+                    )
+                ],
             )
-    finally:
-        if metrics is not None and not completed and "audio" in requested_modalities:
-            metrics.record("audio_response_aborted", request_id, "api", time.time_ns())
+
+            data = stream_resp.model_dump(exclude_none=True)
+            for choice in data.get("choices", []):
+                choice.setdefault("finish_reason", None)
+            yield f"data: {json.dumps(data)}\n\n"
+
+    # Finish chunk: empty delta + finish_reason.
+    finish_resp = ChatCompletionStreamResponse(
+        id=response_id,
+        created=created,
+        model=model,
+        choices=[
+            ChatCompletionStreamChoice(
+                index=0,
+                delta=ChatCompletionStreamDelta(),
+                finish_reason=finish_reason or "stop",
+            )
+        ],
+        usage=final_usage,
+    )
+    data = finish_resp.model_dump(exclude_none=True)
+    for choice in data.get("choices", []):
+        choice.setdefault("finish_reason", None)
+    yield f"data: {json.dumps(data)}\n\n"
+
+    yield f"data: {STREAM_DONE_SENTINEL}\n\n"
 
 
 def explicit_generation_params(request: Any) -> list[str]:
@@ -1567,14 +1505,8 @@ def speech_pcm_chunk_bytes(
 
 def store_speech_usage(request: Request, usage: UsageInfo | None) -> None:
     """Store speech usage for response metrics."""
-    if usage is not None:
-        for name, value in (
-            ("audio_generation_s", usage.engine_time_s),
-            ("prompt_tokens", usage.prompt_tokens),
-            ("completion_tokens", usage.completion_tokens),
-        ):
-            if value is not None:
-                setattr(request.state, name, value)
+    if usage is not None and usage.engine_time_s is not None:
+        request.state.audio_generation_s = usage.engine_time_s
 
 
 async def speech_audio_response(

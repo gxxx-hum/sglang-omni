@@ -143,8 +143,6 @@ class Client:
                 id=f"audio-{request_id}",
                 data=audio_b64,
                 transcript=full_text if full_text else None,
-                duration_s=to_numpy(combined).shape[-1]
-                / (sample_rate or DEFAULT_SAMPLE_RATE),
             )
 
         return CompletionResult(
@@ -201,16 +199,9 @@ class Client:
                     text=text,
                     modality=chunk.modality,
                     audio_b64=audio_b64,
-                    audio_duration_s=(
-                        to_numpy(chunk.audio_data).shape[-1]
-                        / (chunk.sample_rate or DEFAULT_SAMPLE_RATE)
-                        if chunk.modality == "audio" and chunk.audio_data is not None
-                        else None
-                    ),
                     finish_reason=chunk.finish_reason,
                     usage=chunk.usage,
                     stage_name=chunk.stage_name,
-                    num_new_tokens=len(chunk.token_ids) if chunk.token_ids else None,
                 )
 
     # ------------------------------------------------------------------

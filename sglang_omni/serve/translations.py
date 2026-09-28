@@ -110,7 +110,6 @@ def register_translations(app: FastAPI) -> None:
         duration_s = await asyncio.to_thread(
             speech_to_text.probe_audio_duration, audio_bytes
         )
-        request.state.asr_audio_duration_s = duration_s
 
         language = form.language
         if language is None:
@@ -160,14 +159,6 @@ def register_translations(app: FastAPI) -> None:
             )
         except HTTPException as exc:
             return http_exception_response(exc, param=None)
-
-        if result.usage is not None:
-            if result.usage.engine_time_s is not None:
-                request.state.asr_engine_time_s = result.usage.engine_time_s
-            if result.usage.prompt_tokens is not None:
-                request.state.asr_prompt_tokens = result.usage.prompt_tokens
-            if result.usage.completion_tokens is not None:
-                request.state.asr_completion_tokens = result.usage.completion_tokens
 
         try:
             # note (Junnan Li): verbose_json keeps transcription parity: with no

@@ -473,7 +473,6 @@ async def first_speech_to_text_chunk(
 async def speech_to_text_stream(
     chunk_stream: AsyncIterator[GenerateChunk],
     *,
-    request: Request,
     first_chunk: GenerateChunk | None,
     request_id: str,
     adapter: TranscriptionAdapter,
@@ -488,13 +487,6 @@ async def speech_to_text_stream(
         if chunk.finish_reason is not None:
             if isinstance(chunk.text, str) and chunk.text:
                 final_text = chunk.text
-            if chunk.usage is not None:
-                if chunk.usage.engine_time_s is not None:
-                    request.state.asr_engine_time_s = chunk.usage.engine_time_s
-                if chunk.usage.prompt_tokens is not None:
-                    request.state.asr_prompt_tokens = chunk.usage.prompt_tokens
-                if chunk.usage.completion_tokens is not None:
-                    request.state.asr_completion_tokens = chunk.usage.completion_tokens
             return None
         if chunk.modality == "text" and chunk.text:
             event = TranscriptionTextDeltaEvent(delta=chunk.text)
@@ -512,7 +504,6 @@ async def speech_to_text_stream(
                 if line is not None:
                     yield line
     except Exception as exc:
-        request.state.asr_stream_failed = True
         logger.exception(
             "Error streaming %s for request %s", operation_name, request_id
         )
@@ -567,7 +558,6 @@ async def create_speech_to_text_streaming_response(
     return ClosableStreamingResponse(
         speech_to_text_stream(
             chunk_stream,
-            request=request,
             first_chunk=first_chunk,
             request_id=request_id,
             adapter=adapter,

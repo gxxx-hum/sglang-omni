@@ -31,7 +31,7 @@ class AudioMetrics:
 
     def __init__(self, registry: CollectorRegistry) -> None:
         self.ttfp = Histogram(
-            "sglang_omni:audio_ttfp_seconds",
+            "sglang_omni:audio_ttfp_s",
             "Time from HTTP request arrival to first streamed audio payload.",
             buckets=LATENCY_BUCKETS_S,
             registry=registry,
@@ -43,25 +43,25 @@ class AudioMetrics:
             registry=registry,
         )
         self.e2e = Histogram(
-            "sglang_omni:audio_e2e_latency_seconds",
+            "sglang_omni:audio_e2e_latency_s",
             "Time from HTTP request arrival to final audio response.",
             buckets=LATENCY_BUCKETS_S,
             registry=registry,
         )
         self.duration = Histogram(
-            "sglang_omni:audio_output_duration_seconds",
+            "sglang_omni:audio_duration_s",
             "Generated audio duration.",
             buckets=LATENCY_BUCKETS_S,
             registry=registry,
         )
         self.interval = Histogram(
-            "sglang_omni:audio_chunk_interval_seconds",
+            "sglang_omni:audio_chunk_interval_s",
             "Wall time between consecutive audio chunks.",
             buckets=FAST_BUCKETS_S,
             registry=registry,
         )
         self.underrun = Histogram(
-            "sglang_omni:audio_underrun_seconds",
+            "sglang_omni:audio_underrun_s",
             "Largest playback buffer underrun per audio response.",
             buckets=FAST_BUCKETS_S,
             registry=registry,
