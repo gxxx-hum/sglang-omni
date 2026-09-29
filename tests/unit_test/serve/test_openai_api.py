@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from sglang_omni.admission import QueueFullError
 from sglang_omni.client import Client, ClientError, GenerateChunk
 from sglang_omni.client.audio import encode_pcm
-from sglang_omni.client.types import GenerateRequest
+from sglang_omni.client.types import GenerateRequest, UsageInfo
 from sglang_omni.pipeline.coordinator import Coordinator
 from sglang_omni.proto import (
     EXPLICIT_GENERATION_PARAMS_KEY,
@@ -151,6 +151,11 @@ class SuccessfulSpeechClient:
             audio_bytes=b"RIFF",
             mime_type=f"audio/{response_format}",
             format=response_format,
+            usage=UsageInfo(
+                prompt_tokens=5,
+                completion_tokens=2,
+                total_tokens=7,
+            ),
             finish_reason=self.finish_reason,
         )
 
@@ -721,6 +726,11 @@ def test_speech_endpoint_returns_binary_audio() -> None:
     assert response.content == b"RIFF"
     assert response.headers["content-type"] == "audio/wav"
     assert response.headers["x-finish-reason"] == "length"
+    assert response.headers["x-prompt-tokens"] == "5"
+    assert response.headers["x-completion-tokens"] == "2"
+    assert response.headers["x-sglang-omni-input-tokens"] == "5"
+    assert response.headers["x-sglang-omni-output-tokens"] == "2"
+    assert response.headers["x-sglang-omni-total-tokens"] == "7"
     assert speech_client.speech_requests[0].model == "tts"
     assert speech_client.speech_requests[0].metadata["tts_params"]["voice"] == "default"
 
