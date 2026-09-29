@@ -30,6 +30,7 @@ from sglang_omni.serve.openai_api import (
     speech_audio_response,
 )
 from sglang_omni.serve.protocol import ChatCompletionRequest, CreateSpeechRequest
+from sglang_omni.serve.qwen3_tts_codec_guard import Qwen3TTSCodecLimitError
 from sglang_omni.serve.speech_service import SpeechRequestValidator
 from sglang_omni.serve.transcriptions import (
     _first_transcription_chunk,
@@ -173,6 +174,21 @@ class EmptyStreamingSpeechClient:
             sample_rate=24000,
             finish_reason="stop",
         )
+
+
+class LengthLimitedStreamingSpeechClient:
+    async def generate(self, request: Any, request_id: str | None = None):
+        del request
+        yield GenerateChunk(
+            request_id=request_id or "speech-1",
+            modality="audio",
+            audio_data=[0.0, 0.1, -0.1, 0.0],
+            sample_rate=24000,
+            finish_reason="length",
+        )
+
+    async def abort(self, request_id: str) -> None:
+        del request_id
 
 
 class FailingSpeechGenerateClient:
@@ -733,6 +749,27 @@ def test_speech_endpoint_returns_binary_audio() -> None:
     assert response.headers["x-sglang-omni-total-tokens"] == "7"
     assert speech_client.speech_requests[0].model == "tts"
     assert speech_client.speech_requests[0].metadata["tts_params"]["voice"] == "default"
+
+
+def test_qwen3_tts_stop_at_reported_budget_remains_successful() -> None:
+    speech_client = SuccessfulSpeechClient(finish_reason="stop")
+    client = TestClient(
+        create_app(
+            speech_client,
+            model_name="qwen3-tts",
+            architectures=["Qwen3TTSForConditionalGeneration"],
+        )
+    )
+
+    response = client.post(
+        "/v1/audio/speech",
+        json={"input": "hello", "max_new_tokens": 2},
+    )
+
+    assert response.status_code == 200
+    assert response.content == b"RIFF"
+    assert response.headers["x-finish-reason"] == "stop"
+    assert len(speech_client.speech_requests) == 1
 
 
 def test_create_app_passes_model_specific_speech_input_limit() -> None:
@@ -1346,6 +1383,21 @@ def test_raw_pcm_response_disconnect_before_first_chunk_aborts_request() -> None
         with pytest.raises(asyncio.CancelledError):
             await task
         assert client.aborted == ["req-1"]
+
+    asyncio.run(drive())
+
+
+def test_raw_pcm_response_rejects_codec_length_before_first_chunk() -> None:
+    async def drive() -> None:
+        with pytest.raises(Qwen3TTSCodecLimitError):
+            await speech_audio_response(
+                request=ConnectedRequest(),
+                client=LengthLimitedStreamingSpeechClient(),
+                gen_req=GenerateRequest(model="qwen3-tts", prompt="hello", stream=True),
+                request_id="req-1",
+                speed=1.0,
+                reject_codec_length=True,
+            )
 
     asyncio.run(drive())
 
