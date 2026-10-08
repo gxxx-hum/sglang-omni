@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Measure generated audio as it leaves the HTTP server."""
 
+import base64
+import json
 import time
 import uuid
 
@@ -32,28 +34,51 @@ class SpeechMetricsMiddleware:
         )
         bytes_per_second = 0
         is_audio_response = False
+        is_sse_response = False
+        sse_completed = False
         succeeded = False
 
         async def send_audio(message: Message) -> None:
-            nonlocal bytes_per_second, is_audio_response, succeeded
+            nonlocal bytes_per_second, is_audio_response, is_sse_response
+            nonlocal sse_completed, succeeded
             if message["type"] == "http.response.start":
                 headers = dict(message.get("headers", []))
                 content_type = headers.get(b"content-type", b"")
-                is_audio_response = message["status"] < 400 and content_type.startswith(
-                    b"audio/"
+                is_sse_response = (
+                    message["status"] < 400
+                    and scope["state"].get("audio_streaming", False)
+                    and content_type.startswith(b"text/event-stream")
+                )
+                is_audio_response = message["status"] < 400 and (
+                    content_type.startswith(b"audio/") or is_sse_response
                 )
                 if (
                     is_audio_response
                     and scope["state"].get("audio_streaming", False)
-                    and content_type.startswith(b"audio/pcm")
+                    and (content_type.startswith(b"audio/pcm") or is_sse_response)
                 ):
                     sample_rate = int(headers[b"x-sample-rate"])
                     channels = int(headers[b"x-channels"])
                     bit_depth = int(headers[b"x-bit-depth"])
                     bytes_per_second = sample_rate * channels * bit_depth // 8
-            elif message["type"] == "http.response.body" and bytes_per_second:
+            elif message["type"] == "http.response.body":
                 body = message.get("body", b"")
-                if body:
+                if body and is_sse_response and body.startswith(b"data: "):
+                    event = json.loads(body[6:])
+                    if event["type"] == "speech.audio.delta":
+                        duration_s = (
+                            len(base64.b64decode(event["audio"])) / bytes_per_second
+                        )
+                        self.metrics.record(
+                            "audio_chunk",
+                            request_id,
+                            "api",
+                            time.perf_counter_ns(),
+                            {"duration_s": duration_s},
+                        )
+                    elif event["type"] == "speech.audio.done":
+                        sse_completed = True
+                elif body and bytes_per_second and not is_sse_response:
                     self.metrics.record(
                         "audio_chunk",
                         request_id,
@@ -63,7 +88,9 @@ class SpeechMetricsMiddleware:
                     )
             await send(message)
             if message["type"] == "http.response.body" and is_audio_response:
-                if not message.get("more_body", False):
+                if not message.get("more_body", False) and (
+                    not is_sse_response or sse_completed
+                ):
                     succeeded = True
 
         try:

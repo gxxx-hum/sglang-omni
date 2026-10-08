@@ -1655,9 +1655,12 @@ def test_raw_pcm_response_disconnect_before_first_chunk_aborts_request() -> None
 def test_speech_sse_stream_sends_deltas_then_done_with_usage(
     usage_first: bool,
 ) -> None:
+    metrics = RuntimeMetrics()
     client = TestClient(
         create_app(
-            TwoChunkStreamingSpeechClient(usage_first=usage_first), model_name="tts"
+            TwoChunkStreamingSpeechClient(usage_first=usage_first),
+            model_name="tts",
+            metrics=metrics,
         )
     )
 
@@ -1688,11 +1691,16 @@ def test_speech_sse_stream_sends_deltas_then_done_with_usage(
         "output_tokens": 2,
         "total_tokens": 5,
     }
+    snapshot = metrics.render().decode()
+    assert "sglang_omni:audio_e2e_latency_s_count 1.0" in snapshot
+    assert "sglang_omni:audio_ttfp_s_count 1.0" in snapshot
+    assert "sglang_omni:audio_chunk_interval_s_count 1.0" in snapshot
 
 
 def test_speech_sse_stream_failure_ends_with_error_event() -> None:
     speech_client = TwoChunkStreamingSpeechClient(fail_after_first_chunk=True)
-    client = TestClient(create_app(speech_client, model_name="tts"))
+    metrics = RuntimeMetrics()
+    client = TestClient(create_app(speech_client, model_name="tts", metrics=metrics))
 
     response = client.post(
         "/v1/audio/speech",
@@ -1709,6 +1717,9 @@ def test_speech_sse_stream_failure_ends_with_error_event() -> None:
     assert events[1]["error"]["type"] == "server_error"
     assert "vocoder failed" in events[1]["error"]["message"]
     assert len(speech_client.aborted) == 1
+    snapshot = metrics.render().decode()
+    assert "sglang_omni:audio_ttfp_s_count 1.0" in snapshot
+    assert "sglang_omni:audio_e2e_latency_s_count 0.0" in snapshot
 
 
 def test_sse_speech_response_close_aborts_inner_speech_stream() -> None:
