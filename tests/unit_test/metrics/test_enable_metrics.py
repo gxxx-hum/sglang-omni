@@ -83,7 +83,7 @@ def test_stage_runtime_enables_upstream_sglang_metrics() -> None:
         defaults={},
         runtime_server_args_overrides={
             "enable_metrics": True,
-            "extra_metric_labels": {"replica": "0", "stage": "engine"},
+            "extra_metric_labels": {"omni_stage": "engine", "replica": "0"},
         },
     )
 
@@ -91,8 +91,8 @@ def test_stage_runtime_enables_upstream_sglang_metrics() -> None:
         "enable_metrics": True,
         "extra_metric_labels": {
             "deployment": "test",
+            "omni_stage": "engine",
             "replica": "0",
-            "stage": "engine",
         },
         "max_running_requests": 4,
     }

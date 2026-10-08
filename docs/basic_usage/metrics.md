@@ -14,9 +14,12 @@ Metrics are disabled by default, matching SGLang server behavior.
 
 Engine stages use SGLang's own metrics collector. SGLang-Omni enables that
 collector for each engine stage and exposes its multiprocess output without
-recomputing token counts or latency. Every SGLang metric includes a `stage`
-label; replicated stages also include `replica`. Existing SGLang labels such as
-`model_name`, `engine_type`, `tp_rank`, and `pp_rank` remain unchanged.
+recomputing token counts or latency.
+Omni adds an `omni_stage` label to identify the logical pipeline stage;
+replicated stages also include `replica`. Existing SGLang labels such as
+`stage`, `model_name`, `engine_type`, `tp_rank`, and `pp_rank` remain unchanged.
+This keeps the Omni stage name separate from SGLang's own `stage` label and
+allows SGLang's queue and per-stage latency metrics to be observed.
 
 Metric names, buckets, and calculations follow the installed SGLang version.
 See the [SGLang observability documentation](https://docs.sglang.ai/advanced_features/observability.html)

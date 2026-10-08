@@ -164,9 +164,12 @@ def build_stage_groups(
         runtime_server_args_overrides: dict[str, object]
         if enable_metrics and stage_config_cls.engine_stage:
             extra_metric_labels = (
-                {"stage": logical_stage_name}
+                {"omni_stage": logical_stage_name}
                 if replica_id is None
-                else {"stage": logical_stage_name, "replica": str(replica_id)}
+                else {
+                    "omni_stage": logical_stage_name,
+                    "replica": str(replica_id),
+                }
             )
             runtime_server_args_overrides = {
                 "enable_metrics": True,

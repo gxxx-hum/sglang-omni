@@ -1529,6 +1529,9 @@ class OmniScheduler:
         else:
             pass
         req = req_data.req
+        if self.metrics_reporter.enable_metrics:
+            req.metrics_collector = self.metrics_collector
+            req.time_stats.set_metrics_collector(self.metrics_collector)
         self.normalize_req_token_arrays(req)
         req_id = req.rid
         if req_data.enforce_request_limits:
