@@ -46,10 +46,14 @@ class RuntimeMetrics:
         metrics_dir = os.environ.get("PROMETHEUS_MULTIPROC_DIR")
         if metrics_dir is None:
             return generate_latest(self.registry)
+        else:
+            pass
 
         upstream_registry = CollectorRegistry()
         multiprocess.MultiProcessCollector(upstream_registry, path=metrics_dir)
         upstream_metrics = generate_latest(upstream_registry)
         if values.ValueClass.__name__ == "MmapedValue":
             return upstream_metrics
+        else:
+            pass
         return upstream_metrics + generate_latest(self.registry)

@@ -26,6 +26,8 @@ class SpeechMetricsMiddleware:
         ):
             await self.app(scope, receive, send)
             return
+        else:
+            pass
 
         request_id = str(uuid.uuid4())
         scope.setdefault("state", {})
@@ -61,6 +63,8 @@ class SpeechMetricsMiddleware:
                     channels = int(headers[b"x-channels"])
                     bit_depth = int(headers[b"x-bit-depth"])
                     bytes_per_second = sample_rate * channels * bit_depth // 8
+                else:
+                    pass
             elif message["type"] == "http.response.body":
                 body = message.get("body", b"")
                 if body and is_sse_response and body.startswith(b"data: "):
@@ -78,6 +82,8 @@ class SpeechMetricsMiddleware:
                         )
                     elif event["type"] == "speech.audio.done":
                         sse_completed = True
+                    else:
+                        pass
                 elif body and bytes_per_second and not is_sse_response:
                     self.metrics.record(
                         "audio_chunk",
@@ -86,12 +92,20 @@ class SpeechMetricsMiddleware:
                         time.perf_counter_ns(),
                         {"duration_s": len(body) / bytes_per_second},
                     )
+                else:
+                    pass
+            else:
+                pass
             await send(message)
             if message["type"] == "http.response.body" and is_audio_response:
                 if not message.get("more_body", False) and (
                     not is_sse_response or sse_completed
                 ):
                     succeeded = True
+                else:
+                    pass
+            else:
+                pass
 
         try:
             await self.app(scope, receive, send_audio)

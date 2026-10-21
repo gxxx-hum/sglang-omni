@@ -91,6 +91,8 @@ class AudioMetrics:
             self.record_done(request_id, timestamp_ns, details)
         elif event_name == "audio_chunk":
             self.record_chunk(request_id, timestamp_ns, details)
+        else:
+            pass
 
     def record_done(
         self, request_id: str, timestamp_ns: int, details: MetricDetails
@@ -111,11 +113,19 @@ class AudioMetrics:
             generation_s = details.get("audio_generation_s")
             if isinstance(generation_s, (int, float)) and generation_s >= 0:
                 self.rtf.observe(generation_s / duration_s)
+            else:
+                pass
+        else:
+            pass
         if audio is not None and audio.duration_s > 0:
             self.underrun.observe(audio.max_underrun_s)
             for threshold_ms in CONTINUITY_THRESHOLDS_MS:
                 if audio.max_underrun_s <= threshold_ms / 1000:
                     self.continuity.labels(str(threshold_ms)).inc()
+                else:
+                    pass
+        else:
+            pass
 
     def record_chunk(
         self, request_id: str, timestamp_ns: int, details: MetricDetails
@@ -132,6 +142,8 @@ class AudioMetrics:
                 start_ns = self.response_started_ns.get(request_id)
                 if start_ns is not None:
                     self.ttfp.observe(max(0.0, (timestamp_ns - start_ns) / 1e9))
+                else:
+                    pass
             else:
                 interval_s = max(0.0, (timestamp_ns - audio.last_ns) / 1e9)
                 self.interval.observe(interval_s)
@@ -140,6 +152,8 @@ class AudioMetrics:
                 audio.buffered_s = max(0.0, audio.buffered_s - interval_s) + duration_s
                 audio.duration_s += duration_s
                 audio.last_ns = timestamp_ns
+        else:
+            pass
 
     def prune(self, now_ns: int) -> None:
         expired = {

@@ -211,6 +211,8 @@ def resolve_factory_signature_args(
 
     if not runtime_server_args_overrides:
         return args
+    else:
+        pass
 
     accepts_any_kwarg = any(
         parameter.kind is inspect.Parameter.VAR_KEYWORD
@@ -218,6 +220,8 @@ def resolve_factory_signature_args(
     )
     if "server_args_overrides" not in sig.parameters and not accepts_any_kwarg:
         return args
+    else:
+        pass
 
     runtime_overrides = dict(runtime_server_args_overrides)
     runtime_extra_labels = dict(runtime_overrides.pop("extra_metric_labels", {}) or {})
