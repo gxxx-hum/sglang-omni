@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Benchmark Relay &#8212; SGLang</title>
+    <title>Native Media Routes &#8212; SGLang</title>
   
   
   
@@ -49,19 +49,19 @@
     <script src="../_static/copybutton.js?v=ccdb6887"></script>
     <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
     <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'benchmarks/relay';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'basic_usage/native_media_routes';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <script src="../_static/js/qwen3_omni_server_generator.js?v=d7738e8a"></script>
     <script src="../_static/js/ming_omni_server_generator.js?v=7979a72f"></script>
     <link rel="icon" href="../_static/logo.ico"/>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Qwen3-TTS Base: Leading Silence in X-Vector Voice Cloning" href="qwen3_tts_leading_silence.html" />
-    <link rel="prev" title="Same-GPU Data Parallelism with CUDA MPS" href="../basic_usage/mps_dp.html" />
+    <link rel="next" title="MLX Path" href="../mlx/index.html" />
+    <link rel="prev" title="Same-GPU Data Parallelism with CUDA MPS" href="mps_dp.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.1.8" />
-    <meta name="docbuild:last-update" content="Oct 13, 2026"/>
+    <meta name="docbuild:last-update" content="Oct 21, 2026"/>
   
     
     <script src="../_static/searchtools.js"></script>
@@ -206,17 +206,21 @@
     <div class="bd-toc-item navbar-nav active">
         <p aria-level="2" class="caption" role="heading"><span class="caption-text">Get Started</span></p>
 <ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../get_started/installation.html">🚀 Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../get_started/installation_npu.html">🚀 Installation — Ascend NPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../get_started/installation_xpu.html">🚀 Installation — Intel XPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../get_started/installation_cpu.html">🚀 Installation — Intel CPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../get_started/installation_musa.html">🚀 Installation — MUSA</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../get_started/installation.html">Installation — CUDA</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../get_started/installation_apple_silicon.html">Installation — Apple Silicon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../get_started/installation_npu.html">Installation — Ascend NPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../get_started/installation_xpu.html">Installation — Intel XPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../get_started/installation_cpu.html">Installation — Intel CPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../get_started/installation_musa.html">Installation — MUSA</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../get_started/troubleshooting.html">Troubleshooting</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Cookbook</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../cookbook/higgs_tts.html">Higgs TTS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cookbook/nemotron_diarization.html">Nemotron 3 Diarization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../cookbook/voxtral_tts.html">Voxtral TTS</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../cookbook/fishaudio_s2_pro.html">Fish Audio S2-Pro</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cookbook/fishaudio_drama3.html">Fish Audio Drama 3</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../cookbook/qwen3_tts.html">Qwen3 TTS</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../cookbook/ming_tts.html">Ming-Omni-TTS</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../cookbook/moss_tts.html">MOSS-TTS</a></li>
@@ -233,33 +237,39 @@
 <li class="toctree-l1"><a class="reference internal" href="../cookbook/qwen3_omni.html">Qwen3-Omni</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../cookbook/minicpm_o.html">MiniCPM-o</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../cookbook/ming_omni.html">Ming-Omni</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cookbook/ming3_audio.html">Ming-3.0-audio-flash</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cookbook/ming3_tts.html">Ming-3.0-TTS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cookbook/ming3_asr.html">Ming-3.0-asr-tiny</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../cookbook/nemotron_voicechat.html">NemotronLabs VoiceChat</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../cookbook/personaplex.html">PersonaPlex</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../cookbook/llada2_uni.html">LLaDA2.0-Uni</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../cookbook/fun_cosyvoice3.html">Fun-CosyVoice3</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../cookbook/auk.html">AuK</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cookbook/cosmos3_nano.html">Cosmos3 Nano serving</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">General Usage</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="../basic_usage/qwen3_omni.html">Omni Model Usage</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../basic_usage/audio_translations.html">Audio Translations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../basic_usage/tts.html">TTS Model Usage</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../basic_usage/process_topology.html">Process Topology, Replicas, and GPU Sharing</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../basic_usage/tts_process_topology.html">TTS Process Topology</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../basic_usage/process_topology_migration.html">Process Topology Migration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../basic_usage/omni_router.html">SGLang-Omni Rust Router</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../basic_usage/mps_dp.html">Same-GPU Data Parallelism with CUDA MPS</a></li>
-</ul>
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Benchmarks</span></p>
 <ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Benchmark Relay</a></li>
-<li class="toctree-l1"><a class="reference internal" href="qwen3_tts_leading_silence.html">Qwen3-TTS Base: Leading Silence in X-Vector Voice Cloning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="qwen3_omni.html">Omni Model Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="native_chat_stage.html">Native Chat Stage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="audio_translations.html">Audio Translations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tts.html">TTS Model Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="process_topology.html">Process Topology, Replicas, and GPU Sharing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tts_process_topology.html">TTS Process Topology</a></li>
+<li class="toctree-l1"><a class="reference internal" href="process_topology_migration.html">Process Topology Migration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="omni_router.html">SGLang-Omni Rust Router</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mps_dp.html">Same-GPU Data Parallelism with CUDA MPS</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Native Media Routes</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">MLX</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../mlx/index.html">MLX Path</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Developer Reference</span></p>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/main.html">Architecture</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/apiserver_design.html">API Server Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/pipeline.html">Pipeline Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer_reference/full_duplex_interactive_model.html">Full Duplex Interactive Model</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/config.html">Config</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/adding_parameters.html">Adding a Parameter</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/communication.html">Communication</a></li>
@@ -267,10 +277,12 @@
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/profiler.html">Request-level profiler</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/qwen3_asr_concurrency_profile.html">Qwen3-ASR High-Concurrency Benchmark and Bottleneck Profile</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/full_duplex_bench.html">Full-Duplex-Bench runbook</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer_reference/full_duplex_metrics.html">Full-Duplex-Bench v1.0 unified metrics</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/tts_bench.html">TTS benchmark runbook</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/asr_bench.html">ASR benchmark runbook</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/omni_offline_bench.html">MiniCPM-o offline benchmark runbook</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/rl_admin_control.html">RL Admin Control</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer_reference/ci_labels.html">CI Workflows and Labels</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/bump_version.html">Bumping the SGLang Pin</a></li>
 </ul>
 
@@ -348,7 +360,7 @@
       
       
       
-      <li><a href="https://github.com/sgl-project/sglang-omni/blob/main/docs/benchmarks/relay.md?plain=1" target="_blank"
+      <li><a href="https://github.com/sgl-project/sglang-omni/blob/main/docs/basic_usage/native_media_routes.md?plain=1" target="_blank"
    class="btn btn-sm btn-source-file-button dropdown-item"
    title="Show source"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -365,7 +377,7 @@
       
       
       
-      <li><a href="https://github.com/sgl-project/sglang-omni/edit/main/docs/benchmarks/relay.md" target="_blank"
+      <li><a href="https://github.com/sgl-project/sglang-omni/edit/main/docs/basic_usage/native_media_routes.md" target="_blank"
    class="btn btn-sm btn-source-edit-button dropdown-item"
    title="Suggest edit"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -382,7 +394,7 @@
       
       
       
-      <li><a href="https://github.com/sgl-project/sglang-omni/issues/new?title=Issue%20on%20page%20%2Fbenchmarks/relay.html&body=Your%20issue%20content%20here." target="_blank"
+      <li><a href="https://github.com/sgl-project/sglang-omni/issues/new?title=Issue%20on%20page%20%2Fbasic_usage/native_media_routes.html&body=Your%20issue%20content%20here." target="_blank"
    class="btn btn-sm btn-source-issues-button dropdown-item"
    title="Open an issue"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -412,7 +424,7 @@
       
       
       
-      <li><a href="../_sources/benchmarks/relay.md" target="_blank"
+      <li><a href="../_sources/basic_usage/native_media_routes.md" target="_blank"
    class="btn btn-sm btn-download-source-button dropdown-item"
    title="Download source file"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -495,7 +507,7 @@
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>Benchmark Relay</h1>
+    <h1>Native Media Routes</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -505,7 +517,10 @@
             </div>
             <nav aria-label="Page">
                 <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#benchmark-script">Benchmark Script</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#behavior">Behavior</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#server-warmup">Server warmup</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#media-policy">Media policy</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#retention">Retention</a></li>
 </ul>
             </nav>
         </div>
@@ -517,19 +532,92 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section class="tex2jax_ignore mathjax_ignore" id="benchmark-relay">
-<h1>Benchmark Relay<a class="headerlink" href="#benchmark-relay" title="Link to this heading">#</a></h1>
-<p>Relay is the core component of SGLang-Omni. It is responsible for transferring data between stages. We provide a benchmark script to measure the performance of different communication backends.</p>
-<section id="benchmark-script">
-<h2>Benchmark Script<a class="headerlink" href="#benchmark-script" title="Link to this heading">#</a></h2>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>benchmark_relay.py<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--backend-type<span class="w"> </span>all<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--start-size<span class="w"> </span><span class="m">16</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--end-size<span class="w"> </span><span class="m">1024</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--factor<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--output-dir<span class="w"> </span>./results
+  <section class="tex2jax_ignore mathjax_ignore" id="native-media-routes">
+<h1>Native Media Routes<a class="headerlink" href="#native-media-routes" title="Link to this heading">#</a></h1>
+<p>Pipelines whose generation stage runs native SGLang <code class="docutils literal notranslate"><span class="pre">multimodal_gen</span></code>, such as Cosmos3, serve the native SGLang image, video and action routes from the Omni server. These requests go straight to the native scheduler that the generation stage owns, so their request and response formats are those of native SGLang.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Routes</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/v1/images/generations</span></code>, <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/v1/images/edits</span></code>, <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/v1/images/{id}/content</span></code></p></td>
+<td><p>Image generation and editing</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/v1/videos</span></code>, <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/v1/videos</span></code>, <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/v1/videos/{id}</span></code>, <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/v1/videos/{id}/content</span></code>, <code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/v1/videos/{id}</span></code></p></td>
+<td><p>Video jobs</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/v1/actions/generations</span></code>, <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/v1/actions/metadata</span></code></p></td>
+<td><p>Action generation, when the checkpoint supports it</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sgl-omni<span class="w"> </span>serve<span class="w"> </span>--model-path<span class="w"> </span>/path/to/Cosmos3-Nano<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span>
+curl<span class="w"> </span>http://127.0.0.1:8000/v1/images/generations<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"prompt": "A red cube on a wooden table", "size": "640x640", "response_format": "b64_json"}'</span>
 </pre></div>
 </div>
+<section id="behavior">
+<h2>Behavior<a class="headerlink" href="#behavior" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Only the routes above are served. Native weights, memory, LoRA, rollout, mesh, realtime, server info and stats routes are not, so use the Omni admin routes, which require the admin key when one is set.</p></li>
+<li><p>The native scheduler listens on <code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code> whatever host the server binds. Startup fails if the generation stage’s <code class="docutils literal notranslate"><span class="pre">server_args_overrides</span></code> set another <code class="docutils literal notranslate"><span class="pre">host</span></code>.</p></li>
+<li><p>The routes run in the generation stage’s process, which already holds native SGLang, and start with that stage. The Omni server relays them to the stage over a local socket and imports no native module itself, so the first request to them pays no start and the server process keeps no native memory.</p></li>
+<li><p>If the routes cannot start, for example because the prompt enhancer config cannot be read, the generation stage fails to start and the server reports the cause.</p></li>
+<li><p>If the native scheduler stops, requests in flight and new requests on these routes get 503 at once. If the generation stage stops, these routes answer 503, and the server stops when the generation stage fails.</p></li>
+</ul>
+</section>
+<section id="server-warmup">
+<h2>Server warmup<a class="headerlink" href="#server-warmup" title="Link to this heading">#</a></h2>
+<p>With <code class="docutils literal notranslate"><span class="pre">warmup_mode:</span> <span class="pre">server</span></code> in the generation stage’s <code class="docutils literal notranslate"><span class="pre">server_args_overrides</span></code>, the generation stage runs native SGLang’s server warmup before it reports ready, with the requests native SGLang’s own server sends, so <code class="docutils literal notranslate"><span class="pre">/health</span></code> answers 200 only after it and the first request finds the generation stage warm. As in native SGLang, a warmup that fails without explicit <code class="docutils literal notranslate"><span class="pre">warmup_resolutions</span></code> is logged as a warning and startup continues. The warmup input image is removed afterwards. The warmup is off by default, and then the generation stage instead sends one step of the same synthetic request in the background once it serves, so readiness does not wait for it and a request that arrives meanwhile queues behind that step and then runs warm. Two series of paired launches of Cosmos3 Nano on one H200, each launch with the warmup paired with one without it, measured these costs as the mean difference and its 95% interval:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Cost against warmup off</p></th>
+<th class="head"><p>First series</p></th>
+<th class="head"><p>Second series, busier host</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Time until <code class="docutils literal notranslate"><span class="pre">/health</span></code> answers 200</p></td>
+<td><p>+16.2 s (+13.1 to +19.3 s)</p></td>
+<td><p>+24.1 s (-17.9 to +66.2 s)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Energy of the generation GPU until ready</p></td>
+<td><p>+9.1 kJ (+8.7 to +9.4 kJ)</p></td>
+<td><p>+10.0 kJ (+5.4 to +14.6 kJ)</p></td>
+</tr>
+<tr class="row-even"><td><p>Energy of the other visible GPU until ready, idle during the longer startup</p></td>
+<td><p>+1.3 kJ (+1.0 to +1.5 kJ)</p></td>
+<td><p>+1.9 kJ (-1.4 to +5.1 kJ)</p></td>
+</tr>
+<tr class="row-odd"><td><p>GPU memory in use from readiness until the first request</p></td>
+<td><p>+5568 MiB in every launch</p></td>
+<td><p>+5568 MiB in every launch</p></td>
+</tr>
+<tr class="row-even"><td><p>Native worker memory at readiness</p></td>
+<td><p>PSS +873 MiB (+677 to +1069 MiB), RSS +859 MiB (+858 to +860 MiB)</p></td>
+<td><p>PSS +745 MiB (+721 to +768 MiB), RSS +859 MiB (+856 to +862 MiB)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Native worker memory after the first request</p></td>
+<td><p>PSS +52 MiB (-18 to +121 MiB), RSS +80 MiB (+80 to +81 MiB)</p></td>
+<td><p>PSS +115 MiB (-67 to +297 MiB), RSS +81 MiB (+78 to +83 MiB)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Native SGLang’s three warmup requests take about 14 s of the readiness difference, 11 s of them its automatic residency probe. Readiness, and with it the energy used until ready, also varies with how fast the weights load, which depends on the page cache and on other load on the host. In the second series the transformer load took 12 to 38 s per launch, and the readiness difference of single pairs ranged from -14.5 s to +44.7 s. GPU memory returns to its level without the warmup with the first request.</p>
+<p>In return the first request after readiness is faster: 1.2 s instead of 2.8 s in the first series (1.6 s less, 95% interval 1.1 to 2.2 s) and 0.9 s instead of 2.8 s in the second (1.9 s less, 1.5 to 2.3 s).</p>
+</section>
+<section id="media-policy">
+<h2>Media policy<a class="headerlink" href="#media-policy" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">--allowed-local-media-path</span></code> and <code class="docutils literal notranslate"><span class="pre">--allowed-media-domain</span></code> apply to every media path and URL in a native route request, including native extra parameters and action observations. With <code class="docutils literal notranslate"><span class="pre">--allowed-local-media-path</span></code>, local paths and file URLs must resolve inside that directory, including the values native SGLang decodes from JSON encoded strings. Native SGLang opens a file URL as written, as a path relative to the server working directory, so send local media as plain paths. While <code class="docutils literal notranslate"><span class="pre">--allowed-media-domain</span></code> is set, remote URLs are refused on these routes, because native SGLang fetches them itself and follows redirects without checking each one, so send such media as an upload or a data URL. Without either option, media references are read as on other routes. Requests can never set server paths such as <code class="docutils literal notranslate"><span class="pre">output_path</span></code>, <code class="docutils literal notranslate"><span class="pre">perf_dump_path</span></code> or model paths. Native SGLang names a saved upload after its file name, and an action upload after its <code class="docutils literal notranslate"><span class="pre">request_id</span></code> or <code class="docutils literal notranslate"><span class="pre">id</span></code> field too, so an upload whose name contains <code class="docutils literal notranslate"><span class="pre">/</span></code> is refused.</p>
+</section>
+<section id="retention">
+<h2>Retention<a class="headerlink" href="#retention" title="Link to this heading">#</a></h2>
+<p>Generated images and videos stay in the generation stage output directory (<code class="docutils literal notranslate"><span class="pre">stages.generation.factory.output_dir</span></code>, <code class="docutils literal notranslate"><span class="pre">outputs</span></code> by default), and native SGLang keeps one job record per request in server memory until the server stops. Native SGLang has no expiry for either. <code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/v1/videos/{id}</span></code> only removes the job record, so it neither stops a running job nor deletes its file. Remove old files from the output directory on a long running server. Uploaded inputs are kept only for their request or video job.</p>
 </section>
 </section>
 
@@ -545,7 +633,7 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../basic_usage/mps_dp.html"
+       href="mps_dp.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
@@ -554,11 +642,11 @@
       </div>
     </a>
     <a class="right-next"
-       href="qwen3_tts_leading_silence.html"
+       href="../mlx/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Qwen3-TTS Base: Leading Silence in X-Vector Voice Cloning</p>
+        <p class="prev-next-title">MLX Path</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -580,7 +668,10 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#benchmark-script">Benchmark Script</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#behavior">Behavior</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#server-warmup">Server warmup</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#media-policy">Media policy</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#retention">Retention</a></li>
 </ul>
   </nav></div>
 
@@ -614,7 +705,7 @@ By SGLang-Omni Team
   
   <div class="footer-item">
     <p class="last-updated">
-  Last updated on Oct 13, 2026.
+  Last updated on Oct 21, 2026.
   <br/>
 </p>
   </div>
