@@ -55,38 +55,9 @@ def test_completion_surfaces_logprobs_and_weight_version() -> None:
     assert out.weight_version == "v7"
 
 
-def test_speech_surfaces_finish_reason() -> None:
-    client = Client(
-        SubmitStubCoordinator(
-            {
-                "audio_data": [0.0, 0.1, -0.1],
-                "sample_rate": 24000,
-                "finish_reason": "length",
-            }
-        )
-    )
-
-    result = asyncio.run(
-        client.speech(
-            GenerateRequest(prompt="hello"),
-            request_id="speech-1",
-            response_format="pcm",
-        )
-    )
-
-    assert result.finish_reason == "length"
-    assert result.mime_type == "audio/pcm"
-
-    unreported = asyncio.run(
-        Client(
-            SubmitStubCoordinator({"audio_data": [0.0, 0.1], "sample_rate": 24000})
-        ).speech(GenerateRequest(prompt="hello"), request_id="speech-2")
-    )
-    assert unreported.finish_reason == "unknown"
-
-
 @pytest.mark.parametrize("shape", [(2, 24000), (24000, 2)])
 def test_speech_duration_uses_sample_axis_for_stereo(shape: tuple[int, int]) -> None:
+    """Stereo speech duration must count audio samples rather than channels."""
     client = Client(
         SubmitStubCoordinator(
             {"audio_data": np.zeros(shape, dtype=np.float32), "sample_rate": 24000}
@@ -129,6 +100,7 @@ def test_speech_preserves_reason_provenance_through_typed_and_serialized_results
             )
         )
         assert result.finish_reason == (finish_reason or "unknown")
+        assert result.mime_type == "audio/pcm"
 
 
 def test_completion_surfaces_omni_rollout() -> None:

@@ -8,6 +8,7 @@ from collections.abc import Coroutine
 from pathlib import Path
 from traceback import format_exception
 from types import FrameType, SimpleNamespace
+from typing import ClassVar
 from unittest.mock import AsyncMock, Mock
 
 import httpx
@@ -18,17 +19,26 @@ from fastapi.testclient import TestClient
 
 import sglang_omni.pipeline.mp_runner as mp_runner
 import sglang_omni.pipeline.runtime_config as runtime_config
+from sglang_omni.client.client import Client
 from sglang_omni.config.schema import (
     CustomVoiceConfig,
     EndpointsConfig,
+    EngineStageConfig,
     PipelineConfig,
+    ProcessConfig,
     StageConfig,
 )
+from sglang_omni.config.topology import compile_logical_processes
+from sglang_omni.metrics.runtime import RuntimeMetrics
 from sglang_omni.pipeline.stage_workers import StageLaunchConfig, StageWorkerProcessSpec
 from sglang_omni.profiler.event_recorder import get_recorder
 from sglang_omni.serve import launcher
-from sglang_omni.serve.openai_api import ServerStatus
-from sglang_omni.serve.protocol import ChatCompletionRequest, ChatMessage
+from sglang_omni.serve.openai_api import ServerStatus, create_app
+from sglang_omni.serve.protocol import (
+    ChatCompletionRequest,
+    ChatMessage,
+    CreateSpeechRequest,
+)
 from sglang_omni.serve.server_warmup import (
     TranscriptionWarmupRequest,
     warmup_tone_wav_bytes,
@@ -328,6 +338,51 @@ async def test_mp_runner_startup_failure_includes_child_factory_traceback(
     assert list(tmp_path.iterdir()) == []
 
 
+@pytest.mark.parametrize(
+    ("entry_limit", "engine_admission_limits", "expected_max_in_flight"),
+    [(None, (), None), (3, (), 6), (3, ((8, 8), (1, 1)), 4)],
+)
+def test_coordinator_cap_follows_an_entry_stage_that_admits_requests(
+    tmp_path: Path,
+    entry_limit: int | None,
+    engine_admission_limits: tuple[tuple[int, int], ...],
+    expected_max_in_flight: int | None,
+) -> None:
+    class EntryAdmitsConfig(PipelineConfig):
+        stage_config_types: ClassVar[dict[str, type[StageConfig]]] = {
+            "engine0": EngineStageConfig,
+            "engine1": EngineStageConfig,
+        }
+
+        def entry_stage_admission_limit(self) -> int | None:
+            return entry_limit
+
+    base = make_config(tmp_path).model_dump()
+    engine_stages = [
+        {
+            "name": f"engine{index}",
+            "process": "pipeline",
+            "factory_path": f"{__name__}.noop_factory",
+            "terminal": True,
+            "engine": {"max_running_requests": running, "max_queued_requests": queued},
+        }
+        for index, (running, queued) in enumerate(engine_admission_limits)
+    ]
+    config = EntryAdmitsConfig(
+        **{
+            **base,
+            "stages": [*base["stages"], *engine_stages],
+            "processes": {"pipeline": ProcessConfig(num_replicas=2)},
+        }
+    )
+    plan, _ = compile_logical_processes(config)
+
+    assert (
+        mp_runner.resolve_coordinator_max_in_flight(config, logical_process_plan=plan)
+        == expected_max_in_flight
+    )
+
+
 @pytest.mark.asyncio
 async def test_mp_runner_stop_cleans_runtime_dir(
     tmp_path: Path,
@@ -346,6 +401,10 @@ async def test_mp_runner_stop_cleans_runtime_dir(
             replica_topology=None,
             logical_process_plan=None,
             max_in_flight=None,
+            max_total_backlog_bytes: int | None = None,
+            session_route=None,
+            session_graph=None,
+            max_output_lead_ms=None,
         ) -> None:
             del (
                 abort_endpoint,
@@ -355,7 +414,11 @@ async def test_mp_runner_stop_cleans_runtime_dir(
                 replica_topology,
                 logical_process_plan,
                 max_in_flight,
+                session_route,
+                session_graph,
+                max_output_lead_ms,
             )
+            self.max_total_backlog_bytes = max_total_backlog_bytes
             self.control_plane = SimpleNamespace(
                 completion_endpoint=completion_endpoint
             )
@@ -418,6 +481,7 @@ async def test_mp_runner_stop_cleans_runtime_dir(
     await runner.start()
     capacity.assert_called_once_with()
     assert len([path for path in tmp_path.iterdir() if path.is_dir()]) == 1
+    assert runner.coordinator.max_total_backlog_bytes == 1024**3
 
     await runner.stop()
 
@@ -432,22 +496,33 @@ async def run_launcher_with_fake_runner(
     monkeypatch: pytest.MonkeyPatch,
     replica_counts: tuple[int, ...] = (1,),
     host: str = "0.0.0.0",
+    created_runners: list[object] | None = None,
+    enable_metrics: bool = False,
 ) -> tuple[object, FastAPI, SimpleNamespace]:
     app = FastAPI()
     profiler_calls = SimpleNamespace(starts=[], stops=[])
+    runners = [] if created_runners is None else created_runners
 
     from sglang_omni.serve import launcher
 
     runner_ref = None
 
     class FakeRunner:
-        def __init__(self, pipeline_config: PipelineConfig) -> None:
+        def __init__(
+            self,
+            pipeline_config: PipelineConfig,
+            *,
+            metrics: RuntimeMetrics | None = None,
+        ) -> None:
             del pipeline_config
             nonlocal runner_ref
+            runners.append(self)
+            self.metrics = metrics
             self.coordinator = StubCoordinator()
             self.stage_control_endpoints = {
                 "preprocessing": "ipc://stage_preprocessing.sock"
             }
+            self.stage_http_routes = []
             self.started = False
             self.stopped = False
             # launcher._run_server reads .prep.placement_plan / .process_plan
@@ -500,9 +575,50 @@ async def run_launcher_with_fake_runner(
     if serve_mock is not None:
         monkeypatch.setattr(launcher.uvicorn.Server, "serve", serve_mock)
 
-    await launcher.run_server(config, host=host, port=8000)
+    await launcher.run_server(
+        config, host=host, port=8000, enable_metrics=enable_metrics
+    )
     assert runner_ref is not None
     return runner_ref, app, profiler_calls
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("enable_metrics", [False, True])
+async def test_launcher_exposes_runner_metrics(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    enable_metrics: bool,
+) -> None:
+    """The metrics switch must reach both stage workers and the HTTP endpoint."""
+    monkeypatch.setattr(launcher, "set_prometheus_multiproc_dir", Mock())
+    runner, app, _ = await run_launcher_with_fake_runner(
+        config=make_config(tmp_path),
+        serve_mock=AsyncMock(return_value=None),
+        monkeypatch=monkeypatch,
+        enable_metrics=enable_metrics,
+    )
+    assert runner.started
+    assert runner.stopped
+    assert app.state.create_app_kwargs["metrics"] is runner.metrics
+    served_app = create_app(Client(StubCoordinator()), **app.state.create_app_kwargs)
+    if enable_metrics:
+        assert runner.metrics is not None
+        runner.metrics.record("audio_response_start", "speech-1", "api", 0)
+        runner.metrics.record(
+            "audio_response_done",
+            "speech-1",
+            "api",
+            1_000_000_000,
+            {"audio_duration_s": 1.0, "is_streaming": False},
+        )
+        with TestClient(served_app) as client:
+            response = client.get("/metrics")
+        assert response.status_code == 200
+        assert "sglang_omni:audio_duration_s_sum 1.0" in response.text
+    else:
+        assert runner.metrics is None
+        with TestClient(served_app) as client:
+            assert client.get("/metrics").status_code == 404
 
 
 @pytest.mark.asyncio
@@ -719,6 +835,41 @@ async def test_transcription_warmup_uploads_a_form_the_transcription_route_parse
         "json",
         False,
     )
+
+
+@pytest.mark.asyncio
+async def test_speech_warmup_posts_its_request_to_the_speech_route(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    posted: list[tuple[str, CreateSpeechRequest]] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        posted.append(
+            (
+                request.url.path,
+                CreateSpeechRequest.model_validate_json(request.content),
+            )
+        )
+        return httpx.Response(200)
+
+    route_warmup_to(monkeypatch, httpx.MockTransport(respond))
+    server = SimpleNamespace(started=True, should_exit=False)
+    app = FastAPI()
+    app.state.server_status = ServerStatus.STARTING
+    request = CreateSpeechRequest(
+        input="Hi", voice="Ryan", response_format="pcm", stream=True
+    )
+
+    await launcher.warm_up_server(
+        server,
+        app,
+        base_url="http://127.0.0.1:8000",
+        requests=[request],
+        timeout_s=5,
+    )
+
+    assert posted == [("/v1/audio/speech", request)]
+    assert app.state.server_status is ServerStatus.UP
 
 
 @pytest.mark.asyncio
@@ -955,15 +1106,20 @@ async def test_launcher_stops_runner_when_server_raises(
 ) -> None:
     config = make_config(tmp_path)
     server_serve = AsyncMock(side_effect=RuntimeError("server failed"))
+    runners: list[object] = []
 
     with pytest.raises(RuntimeError, match="server failed"):
         await run_launcher_with_fake_runner(
             config=config,
             serve_mock=server_serve,
             monkeypatch=monkeypatch,
+            created_runners=runners,
         )
 
     server_serve.assert_awaited_once()
+    assert len(runners) == 1
+    assert runners[0].started
+    assert runners[0].stopped
 
 
 @pytest.mark.asyncio
@@ -1023,8 +1179,14 @@ async def test_launcher_preserves_runner_start_error(
     from sglang_omni.serve import launcher
 
     class FakeRunner:
-        def __init__(self, pipeline_config: PipelineConfig) -> None:
+        def __init__(
+            self,
+            pipeline_config: PipelineConfig,
+            *,
+            metrics: RuntimeMetrics | None = None,
+        ) -> None:
             del pipeline_config
+            self.metrics = metrics
 
         async def start(self, timeout: float) -> None:
             del timeout
@@ -1075,6 +1237,7 @@ def test_launcher_cleans_up_before_passing_on_sigterm(
         def __init__(self, pipeline_config: PipelineConfig) -> None:
             self.coordinator = StubCoordinator()
             self.stage_control_endpoints = {}
+            self.stage_http_routes = []
             self.prep = SimpleNamespace(
                 placement_plan=SimpleNamespace(gpus={}),
                 process_plan=SimpleNamespace(groups=(), tp_stage_to_processes={}),
