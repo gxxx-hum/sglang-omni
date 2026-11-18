@@ -64,7 +64,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.2.0" />
-    <meta name="docbuild:last-update" content="Nov 13, 2026"/>
+    <meta name="docbuild:last-update" content="Nov 18, 2026"/>
   
     
     <script src="../_static/searchtools.js"></script>
@@ -294,6 +294,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../cookbook/minimax_music3.html">MiniMax Music 3</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../cookbook/companies/map.html">M·A·P</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cookbook/yue2.html">YuE2</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../cookbook/companies/inclusionai.html">InclusionAI</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../cookbook/ming_omni.html">Ming-Omni</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../cookbook/llada2_uni.html">LLaDA2.0-Uni</a></li>
@@ -345,7 +349,7 @@
 <li class="toctree-l1"><a class="reference internal" href="main.html">Architecture</a></li>
 <li class="toctree-l1"><a class="reference internal" href="contribution_guide.html">Contribution Guide</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="mlx/index.html">Native MLX</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="mlx/long_audio.html">Qwen3-ASR long-recording measurements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mlx/long_audio.html">ASR long-recording measurements</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="apiserver_design.html">API Server Design</a></li>
@@ -799,11 +803,17 @@ first executable prefill / extend batch is selected.</p>
 </tr>
 <tr class="row-even"><td><p>Drama 3 vocoder</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">drama3_vocoder_window_decode_finished</span></code></p></td>
-<td><p>Repeats the start metadata once the window’s audio chunk is built. The span from the start event is the scheduler thread’s wall time for the window, not GPU decode time alone: it includes copying the audio to the host and serializing it, and for the tail flush, building the request’s final result</p></td>
+<td><p>Repeats the start metadata once the window’s audio chunk is built. The span from the start event is the scheduler thread’s wall time for the window, not GPU decode time alone: it includes copying the audio to the host and serializing it, and for the tail flush, building the request’s final result. Same-length windows of several requests that decode in one batch all start before that decode, so their spans overlap</p></td>
 </tr>
 </tbody>
 </table>
 </div>
+<p>With the incremental vocoder, windows of several streams are decoded in one
+CUDA graph replay. Every window in that group carries the whole batch decode in
+its started-to-finished span, plus its own audio-chunk serialization, not just
+one window’s GPU time. The incremental path has no overlap context, so
+<code class="docutils literal notranslate"><span class="pre">decoded_frames</span></code> equals <code class="docutils literal notranslate"><span class="pre">emitted_frames</span></code>; its last window is decoded in a group
+too and is marked <code class="docutils literal notranslate"><span class="pre">is_final=1</span></code> with <code class="docutils literal notranslate"><span class="pre">chunk_id=-1</span></code>.</p>
 <p>Read <code class="docutils literal notranslate"><span class="pre">d2h_wait_ns</span></code> narrowly. With output overlap on, the lazy codec-EOS scan
 calls <code class="docutils literal notranslate"><span class="pre">.tolist()</span></code> on the staged frame heads, which is itself a host
 synchronization point, and it runs before <code class="docutils literal notranslate"><span class="pre">code2wav_decode_start</span></code>. So
@@ -1193,7 +1203,7 @@ By SGLang-Omni Team
   
   <div class="footer-item">
     <p class="last-updated">
-  Last updated on Nov 13, 2026.
+  Last updated on Nov 18, 2026.
   <br/>
 </p>
   </div>

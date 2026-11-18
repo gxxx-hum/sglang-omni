@@ -64,7 +64,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.2.0" />
-    <meta name="docbuild:last-update" content="Nov 13, 2026"/>
+    <meta name="docbuild:last-update" content="Nov 18, 2026"/>
   
     
     <script src="../_static/searchtools.js"></script>
@@ -294,6 +294,10 @@
 <li class="toctree-l2"><a class="reference internal" href="minimax_music3.html">MiniMax Music 3</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="companies/map.html">M·A·P</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="yue2.html">YuE2</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="companies/inclusionai.html">InclusionAI</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="ming_omni.html">Ming-Omni</a></li>
 <li class="toctree-l2"><a class="reference internal" href="llada2_uni.html">LLaDA2.0-Uni</a></li>
@@ -345,7 +349,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/main.html">Architecture</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/contribution_guide.html">Contribution Guide</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../developer_reference/mlx/index.html">Native MLX</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../developer_reference/mlx/long_audio.html">Qwen3-ASR long-recording measurements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_reference/mlx/long_audio.html">ASR long-recording measurements</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/apiserver_design.html">API Server Design</a></li>
@@ -800,7 +804,7 @@
 </section>
 <section id="apple-silicon-native-mlx">
 <h2>Apple Silicon: native MLX<a class="headerlink" href="#apple-silicon-native-mlx" title="Link to this heading">#</a></h2>
-<p>The standalone <code class="docutils literal notranslate"><span class="pre">ming3_audio_server</span></code> serves <code class="docutils literal notranslate"><span class="pre">/v1/chat/completions</span></code> on an Apple Silicon Mac using <a class="reference external" href="https://huggingface.co/inclusionAI/Ming-3.0-audio-tiny">Ming-3.0-audio-tiny</a>. Inference runs in C++ with the native runtime’s MLX 0.32.3 toolchain, without Python, PyTorch or CUDA.</p>
+<p>The standalone <code class="docutils literal notranslate"><span class="pre">ming3_audio_server</span></code> serves <code class="docutils literal notranslate"><span class="pre">/v1/chat/completions</span></code> on an Apple Silicon Mac using <a class="reference external" href="https://huggingface.co/inclusionAI/Ming-3.0-audio-tiny">Ming-3.0-audio-tiny</a>. Inference runs in C++ with the native runtime’s pinned MLX toolchain, without Python, PyTorch or CUDA.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>sglang_omni_mlx/native/ci/provision_models.py<span class="w"> </span><span class="s2">"</span><span class="nv">$MING3_AUDIO_DATA</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--model<span class="w"> </span>inclusionAI/Ming-3.0-audio-tiny
 sglang_omni_mlx/native/scripts/build_runtime.sh<span class="w"> </span><span class="s2">"</span><span class="nv">$MING3_AUDIO_RUNTIME</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$MING3_AUDIO_BUILD</span><span class="s2">"</span>
@@ -848,6 +852,7 @@ sglang_omni_mlx/native/scripts/build_runtime.sh<span class="w"> </span><span cla
 <li><p>One user message containing exactly one audio clip, with an optional leading system message. Text may appear before or after the audio part.</p></li>
 <li><p>Input is nonempty 16 kHz mono PCM16 or float32 WAV. Audio is encoded in 30-second chunks. Top-level <code class="docutils literal notranslate"><span class="pre">audios</span></code>, file paths and <code class="docutils literal notranslate"><span class="pre">audio_url</span></code> are not supported.</p></li>
 <li><p>Generation is greedy (<code class="docutils literal notranslate"><span class="pre">temperature=0</span></code>), with a positive output token budget. Both <code class="docutils literal notranslate"><span class="pre">ming3_audio_server</span></code> and <code class="docutils literal notranslate"><span class="pre">ming3_audio_chat</span></code> accept <code class="docutils literal notranslate"><span class="pre">--context-length</span> <span class="pre">N</span></code> (default: 8,192); the effective limit is the smaller of this value and the checkpoint’s <code class="docutils literal notranslate"><span class="pre">max_position_embeddings</span></code>. The prompt, including audio tokens, and the requested output budget must fit within that limit. <code class="docutils literal notranslate"><span class="pre">max_completion_tokens</span></code> takes precedence over <code class="docutils literal notranslate"><span class="pre">max_tokens</span></code>.</p></li>
+<li><p>Both binaries accept <code class="docutils literal notranslate"><span class="pre">--speculative-algorithm</span> <span class="pre">NEXTN</span></code> to decode with the checkpoint’s multi-token prediction layer as a one-token draft. On an M4 Pro, long answers took about 30% less time per token, and the speech clips of the CI corpus took about 8% less time end to end. Transcripts can differ from plain decoding at near-tie tokens, and the server uses about 0.85 GB more memory. With NEXTN, <code class="docutils literal notranslate"><span class="pre">ming3_audio_chat</span></code> also reports how many drafts were checked (<code class="docutils literal notranslate"><span class="pre">draft_tokens</span></code>) and accepted (<code class="docutils literal notranslate"><span class="pre">accepted_draft_tokens</span></code>).</p></li>
 <li><p>Streaming, speech output and multi-turn conversations are not supported. The transcription and speech endpoints above are not available on this server.</p></li>
 <li><p>Request bodies are limited to 4 MiB. One generation runs at a time; concurrent requests receive 429. <code class="docutils literal notranslate"><span class="pre">/health</span></code> and <code class="docutils literal notranslate"><span class="pre">/v1/models</span></code> are supported.</p></li>
 </ul>
@@ -951,7 +956,7 @@ By SGLang-Omni Team
   
   <div class="footer-item">
     <p class="last-updated">
-  Last updated on Nov 13, 2026.
+  Last updated on Nov 18, 2026.
   <br/>
 </p>
   </div>

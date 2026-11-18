@@ -59,12 +59,12 @@
     <link rel="icon" href="../_static/logo.ico"/>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="InclusionAI" href="companies/inclusionai.html" />
+    <link rel="next" title="M·A·P" href="companies/map.html" />
     <link rel="prev" title="MiniMax" href="companies/minimax.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.2.0" />
-    <meta name="docbuild:last-update" content="Nov 13, 2026"/>
+    <meta name="docbuild:last-update" content="Nov 18, 2026"/>
   
     
     <script src="../_static/searchtools.js"></script>
@@ -294,6 +294,10 @@
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">MiniMax Music 3</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="companies/map.html">M·A·P</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="yue2.html">YuE2</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="companies/inclusionai.html">InclusionAI</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="ming_omni.html">Ming-Omni</a></li>
 <li class="toctree-l2"><a class="reference internal" href="llada2_uni.html">LLaDA2.0-Uni</a></li>
@@ -345,7 +349,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/main.html">Architecture</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/contribution_guide.html">Contribution Guide</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../developer_reference/mlx/index.html">Native MLX</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../developer_reference/mlx/long_audio.html">Qwen3-ASR long-recording measurements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_reference/mlx/long_audio.html">ASR long-recording measurements</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/apiserver_design.html">API Server Design</a></li>
@@ -699,13 +703,14 @@ uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </s
 </div>
 <p>Default optimizations that are on without further flags: backbone decode device graph, RVQ depth device graph, compiled DIT blocks, compiled DAV decoder, and batched seeded sampling.</p>
 <p>Classifier-free guidance is on in both stages and has no flag. See <a class="reference internal" href="#guidance"><span class="std std-ref">Guidance</span></a> for what it costs you, because the AR half changes how much a request occupies.</p>
+<p>To run it on Ascend NPU, follow the <a class="reference internal" href="../other_platforms/installation_npu.html#minimax-music3"><span class="std std-ref">MiniMax-Music3 Ascend NPU guide</span></a>.</p>
 </section>
 <section id="apple-silicon-native-mlx">
 <h2>Apple Silicon: native MLX<a class="headerlink" href="#apple-silicon-native-mlx" title="Link to this heading">#</a></h2>
 <p>The standalone <code class="docutils literal notranslate"><span class="pre">music3_server</span></code> runs entirely in C++ under
 <code class="docutils literal notranslate"><span class="pre">sglang_omni_mlx/native/</span></code>; it uses the same HTTP request fields as the examples
 below. Download the pinned converted checkpoint, then build with the native
-runtime’s existing MLX 0.32.3 toolchain:</p>
+runtime’s pinned MLX toolchain:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>sglang_omni_mlx/native/ci/provision_models.py<span class="w"> </span><span class="s2">"</span><span class="nv">$MUSIC3_DATA</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--model<span class="w"> </span>mlx-community/MiniMax-Music3-mxfp8
 sglang_omni_mlx/native/scripts/build_runtime.sh<span class="w"> </span><span class="s2">"</span><span class="nv">$MUSIC3_RUNTIME</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$MUSIC3_BUILD</span><span class="s2">"</span>
@@ -1375,11 +1380,11 @@ curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </spa
       </div>
     </a>
     <a class="right-next"
-       href="companies/inclusionai.html"
+       href="companies/map.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">InclusionAI</p>
+        <p class="prev-next-title">M·A·P</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -1458,7 +1463,7 @@ By SGLang-Omni Team
   
   <div class="footer-item">
     <p class="last-updated">
-  Last updated on Nov 13, 2026.
+  Last updated on Nov 18, 2026.
   <br/>
 </p>
   </div>

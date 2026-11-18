@@ -64,7 +64,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.2.0" />
-    <meta name="docbuild:last-update" content="Nov 13, 2026"/>
+    <meta name="docbuild:last-update" content="Nov 18, 2026"/>
   
     
     <script src="../_static/searchtools.js"></script>
@@ -294,6 +294,10 @@
 <li class="toctree-l2"><a class="reference internal" href="minimax_music3.html">MiniMax Music 3</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="companies/map.html">M·A·P</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="yue2.html">YuE2</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="companies/inclusionai.html">InclusionAI</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="ming_omni.html">Ming-Omni</a></li>
 <li class="toctree-l2"><a class="reference internal" href="llada2_uni.html">LLaDA2.0-Uni</a></li>
@@ -345,7 +349,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/main.html">Architecture</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/contribution_guide.html">Contribution Guide</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../developer_reference/mlx/index.html">Native MLX</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../developer_reference/mlx/long_audio.html">Qwen3-ASR long-recording measurements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../developer_reference/mlx/long_audio.html">ASR long-recording measurements</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../developer_reference/apiserver_design.html">API Server Design</a></li>
@@ -628,6 +632,9 @@
   <section class="tex2jax_ignore mathjax_ignore" id="qwen3-tts">
 <h1>Qwen3-TTS<a class="headerlink" href="#qwen3-tts" title="Link to this heading">#</a></h1>
 <p>Qwen3-TTS is a multi-codebook text-to-speech model family that streams 24 kHz speech in 10 languages. The <code class="docutils literal notranslate"><span class="pre">12Hz</span></code> checkpoint name refers to the codec frame rate. SGLang-Omni serves <a class="reference internal" href="#voice-cloning"><span class="std std-ref">Base</span></a> for voice cloning, <a class="reference internal" href="#customvoice"><span class="std std-ref">CustomVoice</span></a> for built-in speakers, and <a class="reference internal" href="#voicedesign"><span class="std std-ref">VoiceDesign</span></a> for voices described in natural language through the OpenAI-compatible <code class="docutils literal notranslate"><span class="pre">/v1/audio/speech</span></code> endpoint.</p>
+<p><img alt="Qwen3-TTS architecture" src="../_images/qwen3-tts-architecture.png" /></p>
+<p>Qwen3-TTS is one Qwen3 LM with two tracks. The text track carries an instruction, such as “Please speak with a warm and encouraging voice.”, beside the words to speak. The other track is 12 Hz multi-codebook codec tokens, with a speaker embedding on that track. An MTP module predicts the residual codebooks and sums them into codec embeddings, and a streaming codec decoder turns those embeddings into the waveform. CustomVoice instructions, VoiceDesign descriptions, and Base reference clips are three ways of filling the speaker and instruction side of this same stack.</p>
+<p>Adapted from the Model Architecture figure in the <a class="reference external" href="https://github.com/QwenLM/Qwen3-TTS#model-architecture">Qwen3-TTS repository</a> (<a class="reference external" href="https://arxiv.org/abs/2601.15621">technical report</a>).</p>
 <p><span id="quick-start"></span></p>
 <section id="prerequisites">
 <h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">#</a></h2>
@@ -926,7 +933,7 @@ By SGLang-Omni Team
   
   <div class="footer-item">
     <p class="last-updated">
-  Last updated on Nov 13, 2026.
+  Last updated on Nov 18, 2026.
   <br/>
 </p>
   </div>
