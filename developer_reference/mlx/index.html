@@ -64,7 +64,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="0.2.0" />
-    <meta name="docbuild:last-update" content="Nov 18, 2026"/>
+    <meta name="docbuild:last-update" content="Nov 21, 2026"/>
   
     
     <script src="../../_static/searchtools.js"></script>
@@ -327,6 +327,10 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../cookbook/companies/dots_studio.html">Dots Studio</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../cookbook/dots_tts.html">dots.tts</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../cookbook/companies/fireredteam.html">FireRedTeam</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../cookbook/firered_tts3.html">FireRedTTS3</a></li>
 </ul>
 </details></li>
 </ul>
@@ -733,7 +737,10 @@ or a Python MLX reference) and use the same weights and MLX version.</p></li>
 <li><p>Keep the reference’s behavior. Behavior changes go in a separate PR.</p></li>
 <li><p>Report English WER, Chinese CER and mixed MER on the 392-clip corpus,
 reference vs native, plus the count of identical clips. Explain where
-differing clips diverge.</p></li>
+differing clips diverge. Report silence and noise separately: for each, count
+clips whose rendered transcript contains a letter or number. On an unrecorded
+chip neither count may exceed the reference chip’s count. Recorded chips
+still require exact matches.</p></li>
 </ul>
 <p><strong>Golden and pins</strong></p>
 <ul class="simple">
@@ -866,7 +873,7 @@ By SGLang-Omni Team
   
   <div class="footer-item">
     <p class="last-updated">
-  Last updated on Nov 18, 2026.
+  Last updated on Nov 21, 2026.
   <br/>
 </p>
   </div>
